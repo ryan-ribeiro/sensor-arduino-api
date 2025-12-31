@@ -22,6 +22,10 @@ public class EventoServices {
 	}
 	
 	public Evento salvar(EventoDTO eventoDTO) {
+		if (eventoDTO == null) {
+			throw new IllegalArgumentException("EventoDTO cannot be null");
+		}
+
 		Evento sensor = new Evento();
 		BeanUtils.copyProperties(eventoDTO, sensor);
 		
