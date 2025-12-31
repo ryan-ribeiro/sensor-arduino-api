@@ -38,7 +38,8 @@ public class Evento{
 	private String dados;
 
 	@JsonInclude(value = Include.NON_NULL)
-	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	// Padrão RFC 3339 para data e hora com timezone
+	@JsonFormat(shape=JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
 	@Column(name = "dt_evento")
 	private Date dataEvento;
 
