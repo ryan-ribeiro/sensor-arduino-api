@@ -10,7 +10,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 /**
@@ -43,11 +42,12 @@ public class Evento{
 	@Column(name = "dt_evento")
 	private Date dataEvento;
 
-	@PrePersist
-	private void getDataAtual() {
-		this.dataEvento = new Date();
-	}
+	@Column(name = "counter")
+	private String counter;	// Contador de overflow ou quantidade de reconexões
 
+	@Column(name = "is_frequent")
+	private Boolean isFrequent;	// Flag para se os dados são coletados em tempo frequente ou não
+								// Por exemplo, a cada 5 segundos
 	public Long getId() {
 		return id;
 	}
@@ -94,6 +94,22 @@ public class Evento{
 
 	public void setDataEvento(Date dataEvento) {
 		this.dataEvento = dataEvento;
+	}
+
+	public String getCounter() {
+		return counter;
+	}
+
+	public void setCounter(String counter) {
+		this.counter = counter;
+	}
+
+	public Boolean getIsFrequent() {
+		return isFrequent;
+	}
+
+	public void setIsFrequent(Boolean isFrequent) {
+		this.isFrequent = isFrequent;
 	}
 	
 }
