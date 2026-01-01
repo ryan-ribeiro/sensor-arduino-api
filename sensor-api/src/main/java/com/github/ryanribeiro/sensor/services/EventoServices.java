@@ -4,7 +4,6 @@ package com.github.ryanribeiro.sensor.services;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.Date;
 import java.util.List;
 
 import org.springframework.beans.BeanUtils;
@@ -41,7 +40,8 @@ public class EventoServices {
 	// Será mais rápido o MCU enviar a data e hora no formato RFC 3339?
 	// Ou será mais rápido o MCU fazer requisição HTTP para obter cada componente separadamente?
 	public String getLastDataEvento() {
-		Evento evento = eventoRepository.findLastEvento(new java.util.Date());
+		Evento evento = eventoRepository.findTop1ByOrderByDataEventoDesc()
+				.orElseThrow(() -> new IllegalStateException("Nenhum evento encontrado"));
 		return evento.getDataEvento().toString();
 	}
 	/**
@@ -51,15 +51,16 @@ public class EventoServices {
 	 * @return DataDTO contendo os componentes de data/hora do último evento
 	 */
 	public DataDTO getLastDataEventoJSON() {
-		Date dataAtual = new Date();
-		Evento evento = eventoRepository.findLastEvento(dataAtual);
+		Evento evento = eventoRepository.findTop1ByOrderByDataEventoDesc()
+				.orElseThrow(() -> new IllegalStateException("Nenhum evento encontrado"));
 		
-		if (evento == null || evento.getDataEvento() == null) {
-			throw new IllegalStateException("Nenhum evento encontrado ou evento sem data");
+		if (evento.getDataEvento() == null) {
+			throw new IllegalStateException("Evento encontrado mas sem data");
 		}
 
 		Instant instant = evento.getDataEvento().toInstant();
-		ZonedDateTime zonedDateTime = instant.atZone(ZoneId.systemDefault());
+		ZoneId systemZoneId = ZoneId.systemDefault();
+		ZonedDateTime zonedDateTime = instant.atZone(systemZoneId);
 		
 		DataDTO dataDTO = new DataDTO();
 		dataDTO.setYear(zonedDateTime.getYear());
@@ -69,7 +70,7 @@ public class EventoServices {
 		dataDTO.setMinute(zonedDateTime.getMinute());
 		dataDTO.setSecond(zonedDateTime.getSecond());
 		dataDTO.setNanoseconds(zonedDateTime.getNano());
-		dataDTO.setLocal(evento.getLocal());
+		dataDTO.setLocal(systemZoneId.toString());
 		
 		return dataDTO;
 	}
