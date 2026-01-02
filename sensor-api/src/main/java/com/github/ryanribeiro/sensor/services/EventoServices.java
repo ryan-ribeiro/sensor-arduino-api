@@ -79,27 +79,35 @@ public class EventoServices {
 		
 		// Priorizar a data fornecida no DTO no formato RFC 3339, se existir
 		if (eventoDTO.getDataEvento() != null && !eventoDTO.getDataEvento().trim().isEmpty()) {
-			// Se a data foi fornecida no DTO, converter de String para Date (deve ser RFC 3339)
+			// Se a data foi fornecida no DTO, converter de String para Date (RFC 3339)
 			dataParaSalvar = parseDataEvento(eventoDTO.getDataEvento());
-		} else if (eventoDTO.getIsFrequent() == true) {
+		} else {
 			// Pegar hora do último evento salvo
 			Date dataUltimoEvento = getLastDataEvento( 
 													  eventoDTO.getArduino(),
 													  eventoDTO.getTipoSensor(),
 													  eventoDTO.getLocal()
 													);
+			if (dataUltimoEvento == null) {
+				return salvar(eventoDTO);	// Salvar normalmente se não houver evento anterior
+			}
 
 			// Pegar diferença de tempo dos eventos
-			long frequency = getEventoFrequencyDAQ(
-													eventoDTO.getArduino(),
-													eventoDTO.getTipoSensor(),
-													eventoDTO.getLocal()
-												);
-			//TODO: Precisa de logica para que, caso não haja pelo menos 2 eventos, ainda consiga passar "" como dataEvento
+			if (eventoDTO.getFrequenciaEmMillissegundos() != null && eventoDTO.getFrequenciaEmMillissegundos() > 0) {
+				// Usar a frequencia enviada no DTO
+				long novoTimestamp = dataUltimoEvento.getTime() + eventoDTO.getFrequenciaEmMillissegundos();
+				dataParaSalvar = new Date(novoTimestamp);
+			} else {
+				long frequency = getEventoFrequencyDAQ(
+														eventoDTO.getArduino(),
+														eventoDTO.getTipoSensor(),
+														eventoDTO.getLocal()
+													);
 
-			// Somar frequency à data do ultimo evento
-			long novoTimestamp = dataUltimoEvento.getTime() + frequency;
-			dataParaSalvar = new Date(novoTimestamp);
+				// Somar frequency à data do ultimo evento
+				long novoTimestamp = dataUltimoEvento.getTime() + frequency;
+				dataParaSalvar = new Date(novoTimestamp);
+			}
 		}
 		// Se dataEvento for null/vazio E isFrequent for false/null, o @PrePersist setará a data atual
 
@@ -113,6 +121,38 @@ public class EventoServices {
 		}
 		// Caso contrário, o @PrePersist na entidade Evento setará a data atual automaticamente
 		
+		return new EventoDTO(eventoRepository.save(sensor));
+	}
+
+	// Para caso o DAQ com temporizador fixo tenha o temporizados enviado em segundos
+	// Mas, por algum motivo, a data em questão pode ser enviada ou não
+	public EventoDTO salvarDadoCasoWiFiCaiuFrequencia(EventoDTO eventoDTO) {
+
+		Date dataParaSalvar = null;
+
+		if (eventoDTO.getDataEvento() != null && !eventoDTO.getDataEvento().trim().isEmpty()) {
+			dataParaSalvar = parseDataEvento(eventoDTO.getDataEvento());
+		} else {	// Entao pegar hora do ultimo evento e somar a frequencia
+			Date dataUltimoEvento = getLastDataEvento( 
+													  eventoDTO.getArduino(),
+													  eventoDTO.getTipoSensor(),
+													  eventoDTO.getLocal()
+													);
+
+			// Pegar diferença de tempo dos eventos
+			long frequency = eventoDTO.getFrequenciaEmMillissegundos();
+
+			long novoTimestamp = dataUltimoEvento.getTime() + frequency;
+			dataParaSalvar = new Date(novoTimestamp);
+		}
+
+		Evento sensor = new Evento();
+		BeanUtils.copyProperties(eventoDTO, sensor);
+
+		if (dataParaSalvar != null) {
+			sensor.setDataEvento(dataParaSalvar);
+		}
+
 		return new EventoDTO(eventoRepository.save(sensor));
 	}
 
@@ -209,7 +249,8 @@ public class EventoServices {
 				arduino,
 				local
 		).map(Evento::getDataEvento)
-		.orElseThrow(() -> new IllegalStateException("Nenhum evento encontrado"));
+		.orElse(null);
+		// .orElseThrow(() -> new IllegalStateException("Nenhum evento encontrado"));
 	}
 
 	

@@ -14,13 +14,13 @@ public class EventoDTO {
 	private String tipoSensor;
 
 	@Nullable
-	private String dataEvento;
+	private String dataEvento;	//TODO: Refactor para tornar esse atributo um Date
 	
 	@Nullable
 	private String counter;
 
 	@Nullable
-	private Boolean isFrequent;
+	private Long frequenciaEmMillissegundos;
 
 	public String getTipoSensor() {
 		return tipoSensor;
@@ -70,12 +70,12 @@ public class EventoDTO {
 		this.counter = counter;
 	}
 
-	public Boolean getIsFrequent() {
-		return isFrequent;
+	public Long getFrequenciaEmMillissegundos() {
+		return frequenciaEmMillissegundos;
 	}
 
-	public void setIsFrequent(Boolean isFrequent) {
-		this.isFrequent = isFrequent;
+	public void setFrequenciaEmMillissegundos(Long tempoEmSegundos) {
+		this.frequenciaEmMillissegundos = tempoEmSegundos;
 	}
 
 	public EventoDTO() {
@@ -90,6 +90,6 @@ public class EventoDTO {
 			this.dataEvento = evento.getDataEvento().toString();
 		}
 		this.counter = evento.getCounter();
-		this.isFrequent = evento.getIsFrequent();
+		this.frequenciaEmMillissegundos = evento.getFrequenciaEmMillissegundos();
 	}
 }

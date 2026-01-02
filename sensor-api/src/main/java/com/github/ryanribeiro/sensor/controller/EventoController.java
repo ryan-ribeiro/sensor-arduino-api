@@ -84,14 +84,18 @@ public class EventoController{
 	// DAQ com temporizador fixo
 	@PostMapping("/salvarDadoCasoWiFiCaiu")
 	public ResponseEntity<Object> salvarDadoCasoWiFiCaiu(@RequestBody EventoDTO eventoDTO) {
-		String counter = eventoDTO.getCounter();
-		Boolean isFrequent = eventoDTO.getIsFrequent();
+		Long frequenciaEmMillissegundos = eventoDTO.getFrequenciaEmMillissegundos();
 		
 		EventoDTO eventoSaved;
 		try {
-			if (isFrequent == null || !isFrequent || counter == null || counter.isEmpty()) {
+			if (frequenciaEmMillissegundos == null) {
 				eventoSaved = eventoServices.salvar(eventoDTO);			
 			} else {
+				if (frequenciaEmMillissegundos <= 0) {
+					return ResponseEntity
+							.status(HttpStatus.BAD_REQUEST)
+							.body("Parâmetro inválido: frequenciaEmMillissegundos deve ser maior que zero");
+				}
 				eventoSaved = eventoServices.salvarDadoCasoWiFiCaiu(eventoDTO);
 			}
 		} catch(Exception e) {

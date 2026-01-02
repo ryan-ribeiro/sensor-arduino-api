@@ -45,9 +45,8 @@ public class Evento{
 	@Column(name = "counter")
 	private String counter;	// Contador de overflow ou quantidade de reconexões
 
-	@Column(name = "is_frequent")
-	private Boolean isFrequent;	// Flag para se os dados são coletados em tempo frequente ou não
-								// Por exemplo, a cada 5 segundos
+	private Long frequenciaEmMillissegundos; // Tempo em milissegundos entre eventos, para dados frequentes
+
 	public Long getId() {
 		return id;
 	}
@@ -104,12 +103,11 @@ public class Evento{
 		this.counter = counter;
 	}
 
-	public Boolean getIsFrequent() {
-		return isFrequent;
+	public Long getFrequenciaEmMillissegundos() {
+		return frequenciaEmMillissegundos;
 	}
 
-	public void setIsFrequent(Boolean isFrequent) {
-		this.isFrequent = isFrequent;
+	public void setFrequenciaEmMillissegundos(Long frequenciaEmMillissegundos) {
+		this.frequenciaEmMillissegundos = frequenciaEmMillissegundos;
 	}
-	
 }
