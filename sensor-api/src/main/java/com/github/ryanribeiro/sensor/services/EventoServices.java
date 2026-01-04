@@ -14,6 +14,7 @@ import java.util.Objects;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 
 import com.github.ryanribeiro.sensor.domain.Evento;
@@ -59,16 +60,18 @@ public class EventoServices {
 		return eventosDTO;
 	}
 	
-	public Optional<Evento> buscarPorId(Long id) throws IllegalArgumentException {
-		if (id == null) {
-			return Optional.empty();
-		}
+	public Optional<Evento> buscarPorId(Long id, JwtAuthenticationToken token) throws IllegalArgumentException {
+		User user = new User();
+		user.setUserId(UUID.fromString(token.getName()));
+		EventoDTO dto = new EventoDTO();
+		dto.setUser(user);
+		dto.setId(id);
 		
-		if (id < 0) {
-			throw new IllegalArgumentException("O id passado nao pode ser negativo: " + id);
+		if (dto.getId() < 0) {
+			throw new IllegalArgumentException("O id passado nao pode ser negativo: " + dto.getId());
 		}
 
-		return eventoRepository.findById(id);
+		return eventoRepository.findByUserAndId(dto.getUser(), dto.getId());
 	}
 	
 	// Para DAQ sem temporizador fixo

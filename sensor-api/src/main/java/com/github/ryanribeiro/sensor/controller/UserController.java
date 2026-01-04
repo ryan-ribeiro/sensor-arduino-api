@@ -55,7 +55,6 @@ public class UserController {
     }
 
     @GetMapping("/admin/users")
-    // @PreAuthorize("hasAuthority('SCOPE_ADMIN')")
     public ResponseEntity<List<User>> getAllUsers() {
         List<User> users = userRepository.findAll();
         return ResponseEntity.ok(users);

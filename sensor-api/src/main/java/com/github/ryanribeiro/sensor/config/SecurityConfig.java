@@ -40,12 +40,6 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(authorize -> authorize
                     .requestMatchers(HttpMethod.POST, "/login").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/admin/all").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/**").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/eventos/salvar").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/users").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/users").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/eventos/data-ultimo-evento").permitAll()
                     .requestMatchers(HttpMethod.GET, "/admin/**").hasAuthority("SCOPE_ADMIN")
                     .anyRequest().authenticated())
                 .csrf(csrf -> csrf.disable())

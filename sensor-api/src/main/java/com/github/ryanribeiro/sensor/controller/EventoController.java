@@ -31,7 +31,6 @@ public class EventoController{
 	private EventoServices eventoServices;
 
 	@GetMapping("/admin/all")
-	@PreAuthorize("hasAuthority('SCOPE_ADMIN')")
 	public ResponseEntity<Object> listar() {
 		List<EventoDTO> eventos;
 		try {
@@ -63,9 +62,11 @@ public class EventoController{
 	}
 
 	@GetMapping(value = "/{id}")
-	public ResponseEntity<Object> buscarPorId(@PathVariable Long id) {
+	public ResponseEntity<Object> buscarPorId(@PathVariable Long id,
+												JwtAuthenticationToken token
+	) {	//TODO: alterar para que o usuário só possa buscar seus próprios eventos
 		try {
-			Optional<Evento> evento = eventoServices.buscarPorId(id);
+			Optional<Evento> evento = eventoServices.buscarPorId(id, token);
 			if (evento.isPresent()) {
 				return ResponseEntity.ok(new EventoDTO(evento.get()));
 			} else {
@@ -118,6 +119,7 @@ public class EventoController{
 	//Nome: considerar /eventos/sync-offline ou /eventos/batch (mais claro que salvarDadoCasoWiFiCaiu).
 	// DAQ com temporizador fixo
 	@PostMapping("/salvarDadoCasoWiFiCaiu")
+	@PreAuthorize("hasAuthority('SCOPE_USER')")
 	public ResponseEntity<Object> salvarDadoCasoWiFiCaiu(@RequestBody EventoDTO eventoDTO,
 			JwtAuthenticationToken token) {
 		Long frequenciaEmMillissegundos = eventoDTO.getFrequenciaEmMillissegundos();
@@ -178,7 +180,6 @@ public class EventoController{
 	{
 
 		try {
-			//TODO: ver como ficaria isso aqui no scope user
 
 			User user = new User();
 			user.setUserId(UUID.fromString(token.getName()));

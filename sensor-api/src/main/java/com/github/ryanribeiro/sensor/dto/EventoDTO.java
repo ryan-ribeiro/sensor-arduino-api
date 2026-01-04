@@ -8,6 +8,8 @@ import com.github.ryanribeiro.sensor.domain.User;
 import io.micrometer.common.lang.Nullable;
 
 public class EventoDTO {
+	private Long id;
+
 	private String local;
 
 	private String arduino;
@@ -131,5 +133,13 @@ public class EventoDTO {
 
 	public void setFrequenciaAnalogica(Boolean frequenciaAnalogica) {
 		this.frequenciaAnalogica = frequenciaAnalogica;
+	}
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
 	}
 }
