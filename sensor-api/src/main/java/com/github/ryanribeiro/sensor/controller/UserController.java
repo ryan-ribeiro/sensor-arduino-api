@@ -5,6 +5,8 @@ import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,7 +18,6 @@ import com.github.ryanribeiro.sensor.repository.UserRepository;
 import com.github.ryanribeiro.sensor.repository.RoleRepository;
 
 import org.springframework.web.bind.annotation.RequestBody;
-import jakarta.transaction.Transactional;
 
 @RestController
 public class UserController {
@@ -32,7 +33,7 @@ public class UserController {
     }
 
     @PostMapping("/users")
-    @Transactional
+    @Transactional(readOnly = false, propagation = Propagation.REQUIRED)
     public ResponseEntity<Void> createUser(@RequestBody CreateUserDTO createUserDTO) {
         if (createUserDTO == null || createUserDTO.username() == null || createUserDTO.password() == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
@@ -55,6 +56,7 @@ public class UserController {
     }
 
     @GetMapping("/admin/users")
+    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
     public ResponseEntity<List<User>> getAllUsers() {
         List<User> users = userRepository.findAll();
         return ResponseEntity.ok(users);

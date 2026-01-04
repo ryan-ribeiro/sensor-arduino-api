@@ -1,5 +1,6 @@
 package com.github.ryanribeiro.sensor.controller;
 
+import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -10,6 +11,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,6 +35,7 @@ public class EventoController{
 	private EventoServices eventoServices;
 
 	@GetMapping("/admin/all")
+	@Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
 	public ResponseEntity<Object> listar() {
 		List<EventoDTO> eventos;
 		try {
@@ -47,6 +52,7 @@ public class EventoController{
 	
 	@GetMapping("")
 	@PreAuthorize("hasAuthority('SCOPE_USER')")
+	@Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
 	public ResponseEntity<Object> listar(JwtAuthenticationToken token) {
 		List<EventoDTO> eventos;
 		try {
@@ -62,6 +68,7 @@ public class EventoController{
 	}
 
 	@GetMapping(value = "/{id}")
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
 	public ResponseEntity<Object> buscarPorId(@PathVariable Long id,
 												JwtAuthenticationToken token
 	) {	//TODO: alterar para que o usuário só possa buscar seus próprios eventos
@@ -79,22 +86,18 @@ public class EventoController{
 		
 	@PostMapping("/salvar")
 	@PreAuthorize("hasAuthority('SCOPE_USER')")
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
 	public ResponseEntity<Object> salvar(@RequestBody EventoDTO eventoDTO, JwtAuthenticationToken token) {
 		EventoDTO eventoSaved;
-		try {
-			
-			if (token.getName() == null) {
-				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token inválido: userId não encontrado.");
-			}
-			
-			User user = new User();
-			user.setUserId(UUID.fromString(token.getName()));
-			eventoDTO.setUser(user);
-
-			eventoSaved = eventoServices.salvar(eventoDTO);		
-		} catch(Exception e) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+		if (token.getName() == null) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token inválido: userId não encontrado.");
 		}
+		
+		User user = new User();
+		user.setUserId(UUID.fromString(token.getName()));
+		eventoDTO.setUser(user);
+
+		eventoSaved = eventoServices.salvar(eventoDTO);
 
 		return ResponseEntity
 					.status(HttpStatus.CREATED)
@@ -120,6 +123,7 @@ public class EventoController{
 	// DAQ com temporizador fixo
 	@PostMapping("/salvarDadoCasoWiFiCaiu")
 	@PreAuthorize("hasAuthority('SCOPE_USER')")
+	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
 	public ResponseEntity<Object> salvarDadoCasoWiFiCaiu(@RequestBody EventoDTO eventoDTO,
 			JwtAuthenticationToken token) {
 		Long frequenciaEmMillissegundos = eventoDTO.getFrequenciaEmMillissegundos();
@@ -171,6 +175,7 @@ public class EventoController{
 	// Considerar cache/TTL se for usado com alta frequência
 	@GetMapping("/data-ultimo-evento")
 	@PreAuthorize("hasAuthority('SCOPE_USER')")
+	@Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
 	public ResponseEntity<String> getLastEventoDateString(
 															@RequestParam String arduino,
 															@RequestParam String tipoSensor, 
