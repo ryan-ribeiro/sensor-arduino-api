@@ -9,21 +9,28 @@ import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.Objects;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.github.ryanribeiro.sensor.domain.Evento;
+import com.github.ryanribeiro.sensor.domain.User;
 import com.github.ryanribeiro.sensor.dto.DataDTO;
 import com.github.ryanribeiro.sensor.dto.EventoDTO;
+import com.github.ryanribeiro.sensor.exceptions.EventoNoFuturoException;
 import com.github.ryanribeiro.sensor.repository.EventoRepository;
+import com.github.ryanribeiro.sensor.repository.UserRepository;
 
 @Service
 public class EventoServices {
 	@Autowired
 	private EventoRepository eventoRepository;
 	
+	@Autowired
+	private UserRepository userRepository;
 	
 	public List<EventoDTO> listar() {
 		var eventos = eventoRepository.findAll();
@@ -33,6 +40,23 @@ public class EventoServices {
 				.toList();
 
 			return eventosDTO;
+	}
+
+	public List<EventoDTO> listarPorUserId(String userId) {
+		UUID uid = null;
+		try {
+			uid = UUID.fromString(userId);
+		} catch (Exception e) {
+			throw new IllegalArgumentException("userId inválido: " + userId);
+		}
+
+		var eventos = eventoRepository.findByUserUserId(uid);
+
+		List<EventoDTO> eventosDTO = eventos.stream()
+				.map(evento -> new EventoDTO(evento))
+				.toList();
+
+		return eventosDTO;
 	}
 	
 	public Optional<Evento> buscarPorId(Long id) throws IllegalArgumentException {
@@ -54,6 +78,15 @@ public class EventoServices {
 		if (eventoDTO == null) {
 			throw new IllegalArgumentException("EventoDTO cannot be null");
 		}
+
+		if (eventoDTO.getUser() == null || eventoDTO.getUser().getUserId() == null) {
+			throw new IllegalArgumentException("User or UserId in EventoDTO cannot be null");
+		}
+		
+		UUID userId = Objects.requireNonNull(eventoDTO.getUser().getUserId(), "UserId cannot be null");
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new IllegalArgumentException("User not found with userId: " + userId));
+		eventoDTO.setUser(user);
 
 		Evento sensor = new Evento();
 		BeanUtils.copyProperties(eventoDTO, sensor);
@@ -83,34 +116,56 @@ public class EventoServices {
 			dataParaSalvar = parseDataEvento(eventoDTO.getDataEvento());
 		} else {
 			// Pegar hora do último evento salvo
-			Date dataUltimoEvento = getLastDataEvento( 
-													  eventoDTO.getArduino(),
-													  eventoDTO.getTipoSensor(),
-													  eventoDTO.getLocal()
-													);
+			// Garantir que temos a entidade User gerenciada (evita discrepância na query por usuário)
+			if (eventoDTO.getUser() == null || eventoDTO.getUser().getUserId() == null) {
+				throw new IllegalArgumentException("User ou userId faltando no EventoDTO");
+			}
+
+			Date dataUltimoEvento = getLastDataEvento(
+					  eventoDTO.getUser(),
+					  eventoDTO.getArduino(),
+					  eventoDTO.getTipoSensor(),
+					  eventoDTO.getLocal()
+					);
 			if (dataUltimoEvento == null) {
 				return salvar(eventoDTO);	// Salvar normalmente se não houver evento anterior
 			}
 
+			if (dataUltimoEvento.after(new Date())) {
+				throw new EventoNoFuturoException();
+			}
+
 			// Pegar diferença de tempo dos eventos
-			if (eventoDTO.getFrequenciaEmMillissegundos() != null && eventoDTO.getFrequenciaEmMillissegundos() > 0) {
+			System.out.println("DEBUG: freqMillis=" + eventoDTO.getFrequenciaEmMillissegundos() + " freqAnalog=" + eventoDTO.getFrequenciaAnalogica() + " last=" + dataUltimoEvento);
+			if (eventoDTO.getFrequenciaEmMillissegundos() != null) {
 				// Usar a frequencia enviada no DTO
 				long novoTimestamp = dataUltimoEvento.getTime() + eventoDTO.getFrequenciaEmMillissegundos();
 				dataParaSalvar = new Date(novoTimestamp);
-			} else {
-				long frequency = getEventoFrequencyDAQ(
+
+				if (dataParaSalvar.after(new Date())) {
+					throw new EventoNoFuturoException();
+				}
+			} else if (Boolean.TRUE.equals(eventoDTO.getFrequenciaAnalogica())) {
+				long frequency = getEventoFrequencyDAQTempFixo(
+														eventoDTO.getUser(),
 														eventoDTO.getArduino(),
 														eventoDTO.getTipoSensor(),
 														eventoDTO.getLocal()
 													);
 
+				System.out.println("Frequencia analogica detectada: " + frequency);
+
 				// Somar frequency à data do ultimo evento
 				long novoTimestamp = dataUltimoEvento.getTime() + frequency;
 				dataParaSalvar = new Date(novoTimestamp);
+				
+				if (dataParaSalvar.after(new Date())) {
+					throw new EventoNoFuturoException();
+				}
 			}
 		}
-		// Se dataEvento for null/vazio E isFrequent for false/null, o @PrePersist setará a data atual
-
+		
+		
 		// Salvar cada evento em cascata, por ordem de aquisição
 		Evento sensor = new Evento();
 		BeanUtils.copyProperties(eventoDTO, sensor);
@@ -124,37 +179,38 @@ public class EventoServices {
 		return new EventoDTO(eventoRepository.save(sensor));
 	}
 
-	// Para caso o DAQ com temporizador fixo tenha o temporizados enviado em segundos
-	// Mas, por algum motivo, a data em questão pode ser enviada ou não
-	public EventoDTO salvarDadoCasoWiFiCaiuFrequencia(EventoDTO eventoDTO) {
+	// // Para caso o DAQ com temporizador fixo tenha o temporizados enviado em segundos
+	// // Mas, por algum motivo, a data em questão pode ser enviada ou não
+	// public EventoDTO salvarDadoCasoWiFiCaiuFrequencia(EventoDTO eventoDTO) {
 
-		Date dataParaSalvar = null;
+	// 	Date dataParaSalvar = null;
 
-		if (eventoDTO.getDataEvento() != null && !eventoDTO.getDataEvento().trim().isEmpty()) {
-			dataParaSalvar = parseDataEvento(eventoDTO.getDataEvento());
-		} else {	// Entao pegar hora do ultimo evento e somar a frequencia
-			Date dataUltimoEvento = getLastDataEvento( 
-													  eventoDTO.getArduino(),
-													  eventoDTO.getTipoSensor(),
-													  eventoDTO.getLocal()
-													);
+	// 	if (eventoDTO.getDataEvento() != null && !eventoDTO.getDataEvento().trim().isEmpty()) {
+	// 		dataParaSalvar = parseDataEvento(eventoDTO.getDataEvento());
+	// 	} else {	// Entao pegar hora do ultimo evento e somar a frequencia
+	// 		Date dataUltimoEvento = getLastDataEvento( 
+	// 												  eventoDTO.getUser(),
+	// 												  eventoDTO.getArduino(),
+	// 												  eventoDTO.getTipoSensor(),
+	// 												  eventoDTO.getLocal()
+	// 												);
 
-			// Pegar diferença de tempo dos eventos
-			long frequency = eventoDTO.getFrequenciaEmMillissegundos();
+	// 		// Pegar diferença de tempo dos eventos
+	// 		long frequency = eventoDTO.getFrequenciaEmMillissegundos();
 
-			long novoTimestamp = dataUltimoEvento.getTime() + frequency;
-			dataParaSalvar = new Date(novoTimestamp);
-		}
+	// 		long novoTimestamp = dataUltimoEvento.getTime() + frequency;
+	// 		dataParaSalvar = new Date(novoTimestamp);
+	// 	}
 
-		Evento sensor = new Evento();
-		BeanUtils.copyProperties(eventoDTO, sensor);
+	// 	Evento sensor = new Evento();
+	// 	BeanUtils.copyProperties(eventoDTO, sensor);
 
-		if (dataParaSalvar != null) {
-			sensor.setDataEvento(dataParaSalvar);
-		}
+	// 	if (dataParaSalvar != null) {
+	// 		sensor.setDataEvento(dataParaSalvar);
+	// 	}
 
-		return new EventoDTO(eventoRepository.save(sensor));
-	}
+	// 	return new EventoDTO(eventoRepository.save(sensor));
+	// }
 
 	/**
 	 * Converte um Date para String no formato RFC 3339.
@@ -217,21 +273,33 @@ public class EventoServices {
 	}
 
 	// Para DAQ com temporizador fixo
-	public long getEventoFrequencyDAQ(String arduino, String tipoSensor, String local) {
-		List<Evento> listaEventos = eventoRepository.findTop2ByTipoSensorAndArduinoAndLocalOrderByDataEventoDesc(
-								tipoSensor,
-								arduino,
-								local
-								)
-							.orElseThrow(() -> new IllegalStateException("Pelo menos 2 eventos nao foram encontrados"));
-		
-		// encontrar diferença de tempo entre os dois eventos acima
-		if (!listaEventos.isEmpty() && listaEventos.size() == 2) {
-			long frequenciaMillis = listaEventos.get(0).getDataEvento().getTime() - listaEventos.get(1).getDataEvento().getTime();
+	public long getEventoFrequencyDAQTempFixo(User user, String arduino, String tipoSensor, String local) {
+		List<Evento> listaEventos = eventoRepository.findTop2ByUserAndTipoSensorAndArduinoAndLocalOrderByDataEventoDesc(
+						user,
+						tipoSensor,
+						arduino,
+						local
+						)
+					.orElseThrow(() -> new IllegalStateException("Pelo menos 2 eventos nao foram encontrados"));
+
+		// Debug: mostrar quais eventos foram retornados e seus timestamps
+		System.out.println("DEBUG getEventoFrequencyDAQTempFixo: user=" + (user != null ? user.getUserId() : "null") +
+							" tipoSensor=" + tipoSensor + " arduino=" + arduino + " local=" + local + " size=" + listaEventos.size());
+		for (int i = 0; i < listaEventos.size(); i++) {
+			Evento e = listaEventos.get(i);
+			System.out.println("DEBUG evento[" + i + "]: id=" + e.getId() + " dataEvento=" + e.getDataEvento() + " ts=" + (e.getDataEvento() != null ? e.getDataEvento().getTime() : "null"));
+		}
+
+		// encontrar diferença de tempo entre os dois eventos acima (garantir ordem: 0 = mais recente)
+		if (!listaEventos.isEmpty() && listaEventos.size() >= 2) {
+			long maisRecente = listaEventos.get(0).getDataEvento().getTime();
+			long anterior = listaEventos.get(1).getDataEvento().getTime();
+			long frequenciaMillis = Math.abs(maisRecente - anterior);
+			System.out.println("DEBUG computed frequency millis=" + frequenciaMillis + " (" + maisRecente + " - " + anterior + ")");
 			return frequenciaMillis;
 		}
-		
-		return 0;		// Isso nunca vai ser executado
+
+		return 0; // fallback
 	}
 
 	
@@ -243,8 +311,9 @@ public class EventoServices {
 		return evento.getDataEvento().toString();
 	}
 
-	public Date getLastDataEvento(String arduino, String tipoSensor, String local) {
-		return eventoRepository.findTop1ByTipoSensorAndArduinoAndLocalOrderByDataEventoDesc(
+	public Date getLastDataEvento(User user, String arduino, String tipoSensor, String local) {
+		return eventoRepository.findTop1ByUserAndTipoSensorAndArduinoAndLocalOrderByDataEventoDesc(
+				user,
 				tipoSensor,
 				arduino,
 				local
@@ -252,6 +321,70 @@ public class EventoServices {
 		.orElse(null);
 		// .orElseThrow(() -> new IllegalStateException("Nenhum evento encontrado"));
 	}
+
+
+	/**
+	 * Salva um batch de eventos enviados por um MCU sem RTC.
+	 * O batch pode informar uma `baseTimestamp` (RFC3339) e uma `frequenciaEmMillissegundos`.
+	 * Se `baseTimestamp` não for informado, a primeira data será calculada a partir do último evento salvo.
+	 */
+	// public List<EventoDTO> salvarBatchDadoCasoWiFiCaiu(EventoBatchDTO batchDTO) {
+	// 	if (batchDTO == null || batchDTO.getEventos() == null || batchDTO.getEventos().isEmpty()) {
+	// 		throw new IllegalArgumentException("Batch vazio");
+	// 	}
+
+	// 	Long freqFromDto = batchDTO.getFrequenciaEmMillissegundos();
+	// 	long frequencyResolved;
+	// 	if (freqFromDto == null || freqFromDto <= 0) {
+	// 		// tentar inferir frequency a partir do último padrão salvo
+	// 		long inferred = getEventoFrequencyDAQ(batchDTO.getUser(), batchDTO.getArduino(), batchDTO.getTipoSensor(), batchDTO.getLocal());
+	// 		if (inferred <= 0) {
+	// 			throw new IllegalArgumentException("Frequencia invalida ou nao encontrada");
+	// 		}
+	// 		frequencyResolved = inferred;
+	// 	} else {
+	// 		frequencyResolved = freqFromDto;
+	// 	}
+	// 	final long frequency = frequencyResolved;
+
+	// 	final Date baseDate;
+	// 	if (batchDTO.getBaseTimestamp() != null && !batchDTO.getBaseTimestamp().trim().isEmpty()) {
+	// 		baseDate = parseDataEvento(batchDTO.getBaseTimestamp());
+	// 	} else {
+	// 		Date last = getLastDataEvento(batchDTO.getArduino(), batchDTO.getTipoSensor(), batchDTO.getLocal());
+	// 		if (last == null) {
+	// 			// se nao tiver evento anterior, usar a data atual como base
+	// 			baseDate = new Date();
+	// 		} else {
+	// 			baseDate = new Date(last.getTime() + frequency);
+	// 		}
+	// 	}
+
+	// 	List<EventoDTO> saved = batchDTO.getEventos().stream().map(dto -> {
+	// 		Evento sensor = new Evento();
+	// 		BeanUtils.copyProperties(Objects.requireNonNull(dto), sensor);
+
+	// 		// preencher campos de nível de batch quando ausentes em cada dto
+	// 		if ((sensor.getArduino() == null || sensor.getArduino().trim().isEmpty()) && batchDTO.getArduino() != null) {
+	// 			sensor.setArduino(batchDTO.getArduino());
+	// 		}
+	// 		if ((sensor.getTipoSensor() == null || sensor.getTipoSensor().trim().isEmpty()) && batchDTO.getTipoSensor() != null) {
+	// 			sensor.setTipoSensor(batchDTO.getTipoSensor());
+	// 		}
+	// 		if ((sensor.getLocal() == null || sensor.getLocal().trim().isEmpty()) && batchDTO.getLocal() != null) {
+	// 			sensor.setLocal(batchDTO.getLocal());
+	// 		}
+
+	// 		int index = batchDTO.getEventos().indexOf(dto); // small cost but acceptable for small batches
+	// 		long ts = baseDate.getTime() + (index * frequency);
+	// 		sensor.setDataEvento(new Date(ts));
+
+	// 		Evento savedEntity = eventoRepository.save(sensor);
+	// 		return new EventoDTO(savedEntity);
+	// 	}).toList();
+
+	// 	return saved;
+	// }
 
 	
 	/**

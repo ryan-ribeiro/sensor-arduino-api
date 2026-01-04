@@ -1,6 +1,9 @@
 package com.github.ryanribeiro.sensor.dto;
 
+import java.util.List;
+
 import com.github.ryanribeiro.sensor.domain.Evento;
+import com.github.ryanribeiro.sensor.domain.User;
 
 import io.micrometer.common.lang.Nullable;
 
@@ -14,6 +17,9 @@ public class EventoDTO {
 	private String tipoSensor;
 
 	@Nullable
+	private User user;
+
+	@Nullable
 	private String dataEvento;	//TODO: Refactor para tornar esse atributo um Date
 	
 	@Nullable
@@ -21,6 +27,8 @@ public class EventoDTO {
 
 	@Nullable
 	private Long frequenciaEmMillissegundos;
+
+	private Boolean frequenciaAnalogica;
 
 	public String getTipoSensor() {
 		return tipoSensor;
@@ -91,5 +99,37 @@ public class EventoDTO {
 		}
 		this.counter = evento.getCounter();
 		this.frequenciaEmMillissegundos = evento.getFrequenciaEmMillissegundos();
+	}
+
+    public EventoDTO(List<Evento> evento) {
+		if (evento == null || evento.isEmpty()) {
+			return;
+		}
+		Evento first = evento.get(0);
+		this.local = first.getLocal();
+		this.arduino = first.getArduino();
+		this.dados = first.getDados();
+		this.tipoSensor = first.getTipoSensor();
+		if (first.getDataEvento() != null) {
+			this.dataEvento = first.getDataEvento().toString();
+		}
+		this.counter = first.getCounter();
+		this.frequenciaEmMillissegundos = first.getFrequenciaEmMillissegundos();
+    }
+
+	public User getUser() {
+		return user;
+	}
+
+	public void setUser(User user) {
+		this.user = user;
+	}
+
+    public Boolean getFrequenciaAnalogica() {
+        return frequenciaAnalogica;
+    }
+
+	public void setFrequenciaAnalogica(Boolean frequenciaAnalogica) {
+		this.frequenciaAnalogica = frequenciaAnalogica;
 	}
 }

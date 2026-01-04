@@ -10,6 +10,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 /**
@@ -20,9 +22,13 @@ import jakarta.persistence.Table;
 public class Evento{
 
 	@Id
-	@GeneratedValue
+	@GeneratedValue(strategy = jakarta.persistence.GenerationType.SEQUENCE)
 	@Column(name = "id")
 	private Long id;
+
+	@ManyToOne
+	@JoinColumn(name = "user_id")
+	private User user;
 	
 	@Column(name = "tp_sensor")
 	private String tipoSensor;
@@ -47,12 +53,22 @@ public class Evento{
 
 	private Long frequenciaEmMillissegundos; // Tempo em milissegundos entre eventos, para dados frequentes
 
+	private Boolean frequenciaAnalogica;
+
 	public Long getId() {
 		return id;
 	}
 
 	public void setId(Long id) {
 		this.id = id;
+	}
+
+	public User getUser() {
+		return user;
+	}
+
+	public void setUser(User user) {
+		this.user = user;
 	}
 
 	public String getTipoSensor() {
@@ -110,4 +126,14 @@ public class Evento{
 	public void setFrequenciaEmMillissegundos(Long frequenciaEmMillissegundos) {
 		this.frequenciaEmMillissegundos = frequenciaEmMillissegundos;
 	}
+
+	public Boolean getFrequenciaAnalogica() {
+		return frequenciaAnalogica;
+	}
+
+	public void setFrequenciaAnalogica(Boolean frequenciaAnalogica) {
+		this.frequenciaAnalogica = frequenciaAnalogica;
+	}
+
+	
 }

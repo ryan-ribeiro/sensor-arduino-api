@@ -3,10 +3,13 @@ package com.github.ryanribeiro.sensor.controller;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.github.ryanribeiro.sensor.domain.Evento;
+import com.github.ryanribeiro.sensor.domain.User;
 import com.github.ryanribeiro.sensor.dto.EventoDTO;
 import com.github.ryanribeiro.sensor.services.EventoServices;
 
@@ -25,13 +29,31 @@ public class EventoController{
 	
 	@Autowired
 	private EventoServices eventoServices;
-	
-	@GetMapping
+
+	@GetMapping("/admin/all")
+	@PreAuthorize("hasAuthority('SCOPE_ADMIN')")
 	public ResponseEntity<Object> listar() {
 		List<EventoDTO> eventos;
 		try {
+			// listar a partir do id do usuário logado
 			eventos = eventoServices.listar();
-			if (eventos.size() == 0) {
+			if (eventos.isEmpty()) {
+				return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Não existem eventos cadastrados no momento.");
+			}
+		} catch(Exception e) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+		}
+		return ResponseEntity.ok(eventos);
+	}
+	
+	@GetMapping("")
+	@PreAuthorize("hasAuthority('SCOPE_USER')")
+	public ResponseEntity<Object> listar(JwtAuthenticationToken token) {
+		List<EventoDTO> eventos;
+		try {
+			// listar a partir do id do usuário logado
+			eventos = eventoServices.listarPorUserId(token.getName());
+			if (eventos.isEmpty()) {
 				return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Não existem eventos cadastrados no momento.");
 			}
 		} catch(Exception e) {
@@ -54,10 +76,20 @@ public class EventoController{
 		}
 	}
 		
-	@PostMapping()
-	public ResponseEntity<Object> salvar(@RequestBody EventoDTO eventoDTO) {
+	@PostMapping("/salvar")
+	@PreAuthorize("hasAuthority('SCOPE_USER')")
+	public ResponseEntity<Object> salvar(@RequestBody EventoDTO eventoDTO, JwtAuthenticationToken token) {
 		EventoDTO eventoSaved;
 		try {
+			
+			if (token.getName() == null) {
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token inválido: userId não encontrado.");
+			}
+			
+			User user = new User();
+			user.setUserId(UUID.fromString(token.getName()));
+			eventoDTO.setUser(user);
+
 			eventoSaved = eventoServices.salvar(eventoDTO);		
 		} catch(Exception e) {
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
@@ -81,17 +113,30 @@ public class EventoController{
 		Se o tempo foi adquirido por clock do MCU, é possível que haja overflow
 	*/
 
+	//Se baseTimestamp não existir, exigir que cada leitura tenha um offset/índice ou usar hora de recepção (com perda de precisão).
+	//Resposta: retornar contagem de eventos criados ou lista de IDs; tornar idempotente quando possível.
+	//Nome: considerar /eventos/sync-offline ou /eventos/batch (mais claro que salvarDadoCasoWiFiCaiu).
 	// DAQ com temporizador fixo
 	@PostMapping("/salvarDadoCasoWiFiCaiu")
-	public ResponseEntity<Object> salvarDadoCasoWiFiCaiu(@RequestBody EventoDTO eventoDTO) {
+	public ResponseEntity<Object> salvarDadoCasoWiFiCaiu(@RequestBody EventoDTO eventoDTO,
+			JwtAuthenticationToken token) {
 		Long frequenciaEmMillissegundos = eventoDTO.getFrequenciaEmMillissegundos();
 		
 		EventoDTO eventoSaved;
+
+		if (token.getName() == null) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token inválido: userId não encontrado.");
+		}
+		User user = new User();
+		user.setUserId(UUID.fromString(token.getName()));
+		eventoDTO.setUser(user);
+
 		try {
-			if (frequenciaEmMillissegundos == null) {
-				eventoSaved = eventoServices.salvar(eventoDTO);			
+			// Se não veio frequenciaEmMillissegundos e nem frequenciaAnalogica, salvar normalmente
+			if (frequenciaEmMillissegundos == null && !Boolean.TRUE.equals(eventoDTO.getFrequenciaAnalogica())) {
+				eventoSaved = eventoServices.salvar(eventoDTO);
 			} else {
-				if (frequenciaEmMillissegundos <= 0) {
+				if (frequenciaEmMillissegundos != null && frequenciaEmMillissegundos <= 0) {
 					return ResponseEntity
 							.status(HttpStatus.BAD_REQUEST)
 							.body("Parâmetro inválido: frequenciaEmMillissegundos deve ser maior que zero");
@@ -107,18 +152,46 @@ public class EventoController{
 					.body(eventoSaved);
 	}
 
+	// @PostMapping("/batch")
+	// public ResponseEntity<Object> salvarBatch(@RequestBody EventoBatchDTO batchDTO) {
+	// 	try {
+	// 		var saved = eventoServices.salvarBatchDadoCasoWiFiCaiu(batchDTO);
+	// 		return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+	// 	} catch (IllegalArgumentException e) {
+	// 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+	// 	} catch (IllegalStateException e) {
+	// 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+	// 	} catch (Exception e) {
+	// 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+	// 	}
+	// }
+
+	// Considerar cache/TTL se for usado com alta frequência
 	@GetMapping("/data-ultimo-evento")
+	@PreAuthorize("hasAuthority('SCOPE_USER')")
 	public ResponseEntity<String> getLastEventoDateString(
-														  @RequestParam String arduino,
-														  @RequestParam String tipoSensor, 
-														  @RequestParam String local
-														) {
+															@RequestParam String arduino,
+															@RequestParam String tipoSensor, 
+															@RequestParam String local,
+															JwtAuthenticationToken token	
+														)
+	{
 
 		try {
-			Date data = eventoServices.getLastDataEvento(arduino, tipoSensor, local);
+			//TODO: ver como ficaria isso aqui no scope user
+
+			User user = new User();
+			user.setUserId(UUID.fromString(token.getName()));
+
+			Date data = eventoServices.getLastDataEvento(user, arduino, tipoSensor, local);
+			if (data == null) {
+				return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Nenhum evento encontrado.");
+			}
 			return ResponseEntity.ok(data.toString());
 		} catch (IllegalStateException e) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
 		}
 	}
 
