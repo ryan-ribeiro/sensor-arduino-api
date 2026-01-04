@@ -5,31 +5,32 @@ import java.util.List;
 import com.github.ryanribeiro.sensor.domain.Evento;
 import com.github.ryanribeiro.sensor.domain.User;
 
-import io.micrometer.common.lang.Nullable;
+import jakarta.validation.constraints.NotBlank;
 
 public class EventoDTO {
 	private Long id;
 
+	@NotBlank
 	private String local;
 
+	@NotBlank
 	private String arduino;
 
+	@NotBlank
 	private String dados;
 
+	@NotBlank
 	private String tipoSensor;
 
-	@Nullable
 	private User user;
 
-	@Nullable
 	private String dataEvento;	//TODO: Refactor para tornar esse atributo um Date
 	
-	@Nullable
 	private String counter;
 
-	@Nullable
 	private Long frequenciaEmMillissegundos;
 
+	@NotBlank
 	private Boolean frequenciaAnalogica;
 
 	public String getTipoSensor() {

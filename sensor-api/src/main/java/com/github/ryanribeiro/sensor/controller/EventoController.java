@@ -1,6 +1,5 @@
 package com.github.ryanribeiro.sensor.controller;
 
-import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -11,7 +10,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,15 +35,9 @@ public class EventoController{
 	@GetMapping("/admin/all")
 	@Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
 	public ResponseEntity<Object> listar() {
-		List<EventoDTO> eventos;
-		try {
-			// listar a partir do id do usuário logado
-			eventos = eventoServices.listar();
-			if (eventos.isEmpty()) {
-				return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Não existem eventos cadastrados no momento.");
-			}
-		} catch(Exception e) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+		List<EventoDTO> eventos = eventoServices.listar();
+		if (eventos.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Não existem eventos cadastrados no momento.");
 		}
 		return ResponseEntity.ok(eventos);
 	}
@@ -54,15 +46,9 @@ public class EventoController{
 	@PreAuthorize("hasAuthority('SCOPE_USER')")
 	@Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
 	public ResponseEntity<Object> listar(JwtAuthenticationToken token) {
-		List<EventoDTO> eventos;
-		try {
-			// listar a partir do id do usuário logado
-			eventos = eventoServices.listarPorUserId(token.getName());
-			if (eventos.isEmpty()) {
-				return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Não existem eventos cadastrados no momento.");
-			}
-		} catch(Exception e) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+		List<EventoDTO> eventos = eventoServices.listarPorUserId(token.getName());
+		if (eventos.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Não existem eventos cadastrados no momento.");
 		}
 		return ResponseEntity.ok(eventos);
 	}
@@ -71,16 +57,12 @@ public class EventoController{
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
 	public ResponseEntity<Object> buscarPorId(@PathVariable Long id,
 												JwtAuthenticationToken token
-	) {	//TODO: alterar para que o usuário só possa buscar seus próprios eventos
-		try {
-			Optional<Evento> evento = eventoServices.buscarPorId(id, token);
-			if (evento.isPresent()) {
-				return ResponseEntity.ok(new EventoDTO(evento.get()));
-			} else {
-				return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Evento não encontrado com id: " + id);
-			}
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+	) {
+		Optional<Evento> evento = eventoServices.buscarPorId(id, token);
+		if (evento.isPresent()) {
+			return ResponseEntity.ok(new EventoDTO(evento.get()));
+		} else {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Evento não encontrado com id: " + id);
 		}
 	}
 		
@@ -127,50 +109,28 @@ public class EventoController{
 	public ResponseEntity<Object> salvarDadoCasoWiFiCaiu(@RequestBody EventoDTO eventoDTO,
 			JwtAuthenticationToken token) {
 		Long frequenciaEmMillissegundos = eventoDTO.getFrequenciaEmMillissegundos();
-		
-		EventoDTO eventoSaved;
 
+		EventoDTO eventoSaved;
 		if (token.getName() == null) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token inválido: userId não encontrado.");
+			throw new IllegalArgumentException();
 		}
 		User user = new User();
 		user.setUserId(UUID.fromString(token.getName()));
 		eventoDTO.setUser(user);
 
-		try {
-			// Se não veio frequenciaEmMillissegundos e nem frequenciaAnalogica, salvar normalmente
-			if (frequenciaEmMillissegundos == null && !Boolean.TRUE.equals(eventoDTO.getFrequenciaAnalogica())) {
-				eventoSaved = eventoServices.salvar(eventoDTO);
-			} else {
-				if (frequenciaEmMillissegundos != null && frequenciaEmMillissegundos <= 0) {
-					return ResponseEntity
-							.status(HttpStatus.BAD_REQUEST)
-							.body("Parâmetro inválido: frequenciaEmMillissegundos deve ser maior que zero");
-				}
-				eventoSaved = eventoServices.salvarDadoCasoWiFiCaiu(eventoDTO);
-			}
-		} catch(Exception e) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+		if (frequenciaEmMillissegundos != null && eventoDTO.getFrequenciaAnalogica() == true) {
+			// Se veio frequenciaEmMillissegundos válida, usar esse método
+			eventoSaved = eventoServices.salvar(eventoDTO);
+		} else {
+			// Senão, salvar normalmente
+			eventoSaved = eventoServices.salvarDadoCasoWiFiCaiu(eventoDTO);
 		}
 
 		return ResponseEntity
 					.status(HttpStatus.CREATED)
+					// .body(a);
 					.body(eventoSaved);
 	}
-
-	// @PostMapping("/batch")
-	// public ResponseEntity<Object> salvarBatch(@RequestBody EventoBatchDTO batchDTO) {
-	// 	try {
-	// 		var saved = eventoServices.salvarBatchDadoCasoWiFiCaiu(batchDTO);
-	// 		return ResponseEntity.status(HttpStatus.CREATED).body(saved);
-	// 	} catch (IllegalArgumentException e) {
-	// 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-	// 	} catch (IllegalStateException e) {
-	// 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-	// 	} catch (Exception e) {
-	// 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
-	// 	}
-	// }
 
 	// Considerar cache/TTL se for usado com alta frequência
 	@GetMapping("/data-ultimo-evento")
@@ -184,21 +144,14 @@ public class EventoController{
 														)
 	{
 
-		try {
+		User user = new User();
+		user.setUserId(UUID.fromString(token.getName()));
 
-			User user = new User();
-			user.setUserId(UUID.fromString(token.getName()));
-
-			Date data = eventoServices.getLastDataEvento(user, arduino, tipoSensor, local);
-			if (data == null) {
-				return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Nenhum evento encontrado.");
-			}
-			return ResponseEntity.ok(data.toString());
-		} catch (IllegalStateException e) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+		Date data = eventoServices.getLastDataEvento(user, arduino, tipoSensor, local);
+		if (data == null) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Nenhum evento encontrado.");
 		}
+		return ResponseEntity.ok(data.toString());
 	}
 
 }

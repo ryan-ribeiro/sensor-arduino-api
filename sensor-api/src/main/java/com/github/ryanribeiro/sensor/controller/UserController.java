@@ -56,7 +56,6 @@ public class UserController {
     }
 
     @GetMapping("/admin/users")
-    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
     public ResponseEntity<List<User>> getAllUsers() {
         List<User> users = userRepository.findAll();
         return ResponseEntity.ok(users);
