@@ -10,7 +10,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 /**
@@ -21,9 +22,13 @@ import jakarta.persistence.Table;
 public class Evento{
 
 	@Id
-	@GeneratedValue
+	@GeneratedValue(strategy = jakarta.persistence.GenerationType.SEQUENCE)
 	@Column(name = "id")
 	private Long id;
+
+	@ManyToOne
+	@JoinColumn(name = "user_id")
+	private User user;
 	
 	@Column(name = "tp_sensor")
 	private String tipoSensor;
@@ -38,14 +43,17 @@ public class Evento{
 	private String dados;
 
 	@JsonInclude(value = Include.NON_NULL)
-	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	// Padrão RFC 3339 para data e hora com timezone
+	@JsonFormat(shape=JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
 	@Column(name = "dt_evento")
 	private Date dataEvento;
 
-	@PrePersist
-	private void getDataAtual() {
-		this.dataEvento = new Date();
-	}
+	@Column(name = "counter")
+	private String counter;	// Contador de overflow ou quantidade de reconexões
+
+	private Long frequenciaEmMillissegundos; // Tempo em milissegundos entre eventos, para dados frequentes
+
+	private Boolean frequenciaAnalogica;
 
 	public Long getId() {
 		return id;
@@ -53,6 +61,14 @@ public class Evento{
 
 	public void setId(Long id) {
 		this.id = id;
+	}
+
+	public User getUser() {
+		return user;
+	}
+
+	public void setUser(User user) {
+		this.user = user;
 	}
 
 	public String getTipoSensor() {
@@ -94,5 +110,30 @@ public class Evento{
 	public void setDataEvento(Date dataEvento) {
 		this.dataEvento = dataEvento;
 	}
+
+	public String getCounter() {
+		return counter;
+	}
+
+	public void setCounter(String counter) {
+		this.counter = counter;
+	}
+
+	public Long getFrequenciaEmMillissegundos() {
+		return frequenciaEmMillissegundos;
+	}
+
+	public void setFrequenciaEmMillissegundos(Long frequenciaEmMillissegundos) {
+		this.frequenciaEmMillissegundos = frequenciaEmMillissegundos;
+	}
+
+	public Boolean getFrequenciaAnalogica() {
+		return frequenciaAnalogica;
+	}
+
+	public void setFrequenciaAnalogica(Boolean frequenciaAnalogica) {
+		this.frequenciaAnalogica = frequenciaAnalogica;
+	}
+
 	
 }
