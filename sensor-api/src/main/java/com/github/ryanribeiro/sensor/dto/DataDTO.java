@@ -12,7 +12,23 @@ public class DataDTO {
     
     public DataDTO() {
     }
+
     
+    
+    public DataDTO(Integer year, Integer month, Integer day, Integer hour, Integer minute, Integer second,
+            Integer nanoseconds, String local) {
+        this.year = year;
+        this.month = month;
+        this.day = day;
+        this.hour = hour;
+        this.minute = minute;
+        this.second = second;
+        this.nanoseconds = nanoseconds;
+        this.local = local;
+    }
+
+
+
     public Integer getYear() {
         return year;
     }
