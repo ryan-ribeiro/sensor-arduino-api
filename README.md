@@ -11,3 +11,5 @@ Para projetos arduino, o ideal é Basic Auth.
 Geração da chave pública e privada:
 openssl genrsa > app.key
 openssl rsa -in app.key -pubout app.pub
+
+https?
