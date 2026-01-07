@@ -1,34 +1,25 @@
-/*
-  Rui Santos
-  Complete project details at https://RandomNerdTutorials.com/esp32-http-get-post-arduino/
-
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files.
-
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
-*/
-
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <Arduino_JSON.h>
 
-const char* ssid = "Danilo";
-const char* password = "qwer@123";
+const char* ssid = "";
+const char* password = "";
+
+const char* accessToken = "";
 
 //Your Domain name with URL path or IP address with path
-const char* serverName = "http://192.168.1.15:8080/evento";
+const char* serverName = "http://192.168.1.8:8080/eventos/1302";
 
 // the following variables are unsigned longs because the time, measured in
 // milliseconds, will quickly become a bigger number than can be stored in an int.
 unsigned long lastTime = 0;
-// Timer set to 10 minutes (600000)
-//unsigned long timerDelay = 600000;
 // Set timer to 5 seconds (5000)
 unsigned long timerDelay = 5000;
 
 String sensorReadings;
-float sensorReadingsArr[3];
+float floatRetorno;
+String stringRetorno;
+bool booleanRetorno;
 
 void setup() {
   Serial.begin(115200);
@@ -48,41 +39,68 @@ void setup() {
 
 void loop() {
   if ((millis() - lastTime) > timerDelay) {
-    //Check WiFi connection status
-    if(WiFi.status()== WL_CONNECTED){
-      //Send an HTTP GET request every 5 seconds
+    if(WiFi.status() == WL_CONNECTED){
       sensorReadings = httpGETRequest(serverName);
-      Serial.println(sensorReadings);
       JSONVar myObject = JSON.parse(sensorReadings);
   
-      // JSON.typeof(jsonVar) can be used to get the type of the var
       if (JSON.typeof(myObject) == "undefined") {
         Serial.println("Parsing input failed!");
         return;
       }
     
-      Serial.print("JSON object = ");
-      Serial.println(myObject);
-    
-      // myObject.keys() can be used to get an array of all the keys in the object
       JSONVar keys = myObject.keys();
     
       for (int i = 0; i < keys.length(); i++) {
         JSONVar value = myObject[keys[i]];
-        Serial.print(keys[i]);
-        Serial.print(" = ");
-        Serial.println(value);
-        sensorReadingsArr[i] = double(value);
+        String keyName = (const char*)keys[i];
+
+        Serial.print("Chave: ");
+        Serial.print(keyName);
+        Serial.print(" | ");
+
+        if (JSON.typeof(value) == "undefined") {
+          Serial.println("Parsing input failed!");
+          return;
+        }
+
+        // E se tiver mais de um JSON dentro? 
+        // Se o tipo for "object", este loop NÃO entra nele.
+        if (JSON.typeof(value) == "object") {
+          Serial.println("-> Contém um objeto aninhado (precisa de novo loop)");
+        }
+
+        // 1. Tratando NÚMEROS
+        if (JSON.typeof(value) == "number") {
+          floatRetorno = (double)value; 
+          Serial.print("float: ");
+          Serial.println(floatRetorno);
+        }
+
+        // 2. Tratando STRINGS
+        if (JSON.typeof(value) == "string") {
+          // O cast correto é (const char*)
+          stringRetorno = (const char*)value; 
+          Serial.print("String: ");
+          Serial.println(stringRetorno);
+        }
+
+        // 3. Tratando BOOLEANOS
+        if (JSON.typeof(value) == "boolean") {
+          booleanRetorno = (bool)value;
+          Serial.print("bool: ");
+          Serial.println(booleanRetorno ? "true" : "false");
+        }
+
+        if (JSON.typeof(value) == "null") {
+          Serial.println("null");
+        }
+        
       }
-      Serial.print("1 = ");
-      Serial.println(sensorReadingsArr[0]);
-      Serial.print("2 = ");
-      Serial.println(sensorReadingsArr[1]);
-      Serial.print("3 = ");
-      Serial.println(sensorReadingsArr[2]);
+      Serial.println("Fim da request.\n\n");
     }
     else {
       Serial.println("WiFi Disconnected");
+      setup();
     }
     lastTime = millis();
   }
@@ -97,6 +115,10 @@ String httpGETRequest(const char* serverName) {
   
   // If you need Node-RED/server authentication, insert user and password below
   //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
+
+  // If you are using Bearer Token, then you will need also:
+  String authHeader = "Bearer " + String(accessToken);
+  http.addHeader("Authorization", authHeader);
   
   // Send HTTP GET request
   int httpResponseCode = http.GET();
