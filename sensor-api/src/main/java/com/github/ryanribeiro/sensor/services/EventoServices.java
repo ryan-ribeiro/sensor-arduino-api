@@ -178,7 +178,7 @@ public class EventoServices {
 					  eventoDTO.getTipoSensor(),
 					  eventoDTO.getLocal()
 					);
-			if (dataUltimoEvento == null) { //TODO: Mas o WiFI caiu!!! o que fazer? Agora ou no futuro?
+			if (dataUltimoEvento == null) {
 				logger.debug("Nenhum evento anterior encontrado para userId={} arduino={} tipoSensor={} local={}. Chamando salvar(eventoDTO)", eventoDTO.getUserId(), eventoDTO.getArduino(), eventoDTO.getTipoSensor(), eventoDTO.getLocal());
 				return salvar(eventoDTO);	// Salvar normalmente se não houver evento anterior
 			}
@@ -203,7 +203,7 @@ public class EventoServices {
 														eventoDTO.getArduino(),
 														eventoDTO.getTipoSensor(),
 														eventoDTO.getLocal()
-													);
+													);	// O tempo então não é importante. Isso é uma simplificação.
 
 				logger.debug("Frequencia analogica detectada: {}", frequency);
 
@@ -403,15 +403,16 @@ public class EventoServices {
 		ZoneId systemZoneId = ZoneId.systemDefault();
 		ZonedDateTime zonedDateTime = instant.atZone(systemZoneId);
 		
-		DataDTO dataDTO = new DataDTO();
-		dataDTO.setYear(zonedDateTime.getYear());
-		dataDTO.setMonth(zonedDateTime.getMonthValue());
-		dataDTO.setDay(zonedDateTime.getDayOfMonth());
-		dataDTO.setHour(zonedDateTime.getHour());
-		dataDTO.setMinute(zonedDateTime.getMinute());
-		dataDTO.setSecond(zonedDateTime.getSecond());
-		dataDTO.setNanoseconds(zonedDateTime.getNano());
-		dataDTO.setLocal(systemZoneId.toString());
+		DataDTO dataDTO = new DataDTO(
+			zonedDateTime.getYear(),
+			zonedDateTime.getMonthValue(),
+			zonedDateTime.getDayOfMonth(),
+			zonedDateTime.getHour(),
+			zonedDateTime.getMinute(),
+			zonedDateTime.getSecond(),
+			zonedDateTime.getNano(),
+			zonedDateTime.getZone().toString()
+		);
 		
 		return dataDTO;
 	}
