@@ -19,11 +19,11 @@ public class RestExceptionHandler extends ResponseEntityExceptionHandler {
     private static final Logger logger = LoggerFactory.getLogger(RestExceptionHandler.class);
     @ExceptionHandler(EventoNoFuturoException.class)
     private ResponseEntity<RestErrorMessage> eventoNoFuturoHandler(EventoNoFuturoException ex) {
-        RestErrorMessage errorMessage = new RestErrorMessage(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+        RestErrorMessage errorMessage = new RestErrorMessage(HttpStatus.BAD_REQUEST, ex.getMessage());
         return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .status(HttpStatus.BAD_REQUEST)
                 .body(errorMessage);
-    }  
+    }
 
     @ExceptionHandler(FrequenciaException.class)
     private ResponseEntity<RestErrorMessage> frequenciaExceptionHandler(FrequenciaException ex) {

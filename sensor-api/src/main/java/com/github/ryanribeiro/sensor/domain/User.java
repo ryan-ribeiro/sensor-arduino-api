@@ -44,6 +44,22 @@ public class User {
     @OneToMany(mappedBy = "user")
     private Set<Evento> eventos;
 
+    public User() {
+
+    }
+
+    public User(UUID userId) {
+        this.userId = userId;
+    }
+
+    public User(UUID userId, String username, String password, Set<Role> roles, Set<Evento> eventos) {
+        this.userId = userId;
+        this.username = username;
+        this.password = password;
+        this.roles = roles;
+        this.eventos = eventos;
+    }
+
     public UUID getUserId() {
         return userId;
     }

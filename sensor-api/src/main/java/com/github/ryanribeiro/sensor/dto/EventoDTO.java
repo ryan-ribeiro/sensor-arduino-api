@@ -1,9 +1,9 @@
 package com.github.ryanribeiro.sensor.dto;
 
 import java.util.List;
+import java.util.UUID;
 
 import com.github.ryanribeiro.sensor.domain.Evento;
-import com.github.ryanribeiro.sensor.domain.User;
 
 import jakarta.validation.constraints.NotBlank;
 
@@ -22,7 +22,7 @@ public class EventoDTO {
 	@NotBlank
 	private String tipoSensor;
 
-	private User user;
+	private UUID userId;
 
 	private String dataEvento;	//TODO: Refactor para tornar esse atributo um Date
 	
@@ -31,7 +31,7 @@ public class EventoDTO {
 	private Long frequenciaEmMillissegundos;
 
 	@NotBlank
-	private Boolean frequenciaAnalogica;
+	private Boolean temporizadorFixo;
 
 	public String getTipoSensor() {
 		return tipoSensor;
@@ -93,6 +93,8 @@ public class EventoDTO {
 	}
 
 	public EventoDTO(Evento evento) {
+		this.id = evento.getId();
+		this.userId = evento.getUser() != null ? evento.getUser().getUserId() : null; 
 		this.local = evento.getLocal();
 		this.arduino = evento.getArduino();
 		this.dados = evento.getDados();
@@ -109,6 +111,8 @@ public class EventoDTO {
 			return;
 		}
 		Evento first = evento.get(0);
+		this.id = first.getId();
+		this.userId = first.getUser() != null ? first.getUser().getUserId() : null;
 		this.local = first.getLocal();
 		this.arduino = first.getArduino();
 		this.dados = first.getDados();
@@ -120,20 +124,20 @@ public class EventoDTO {
 		this.frequenciaEmMillissegundos = first.getFrequenciaEmMillissegundos();
     }
 
-	public User getUser() {
-		return user;
+	public UUID getUserId() {
+		return userId;
 	}
 
-	public void setUser(User user) {
-		this.user = user;
+	public void setUserId(UUID userId) {
+		this.userId = userId;
 	}
 
-    public Boolean getFrequenciaAnalogica() {
-        return frequenciaAnalogica;
+    public Boolean getTemporizadorFixo() {
+        return temporizadorFixo;
     }
 
-	public void setFrequenciaAnalogica(Boolean frequenciaAnalogica) {
-		this.frequenciaAnalogica = frequenciaAnalogica;
+	public void setTemporizadorFixo(Boolean frequenciaAnalogica) {
+		this.temporizadorFixo = frequenciaAnalogica;
 	}
 
 	public Long getId() {

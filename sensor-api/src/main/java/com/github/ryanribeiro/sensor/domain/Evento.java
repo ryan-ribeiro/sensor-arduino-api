@@ -53,7 +53,7 @@ public class Evento{
 
 	private Long frequenciaEmMillissegundos; // Tempo em milissegundos entre eventos, para dados frequentes
 
-	private Boolean frequenciaAnalogica;
+	private Boolean temporizadorFixo;
 
 	public Long getId() {
 		return id;
@@ -127,12 +127,12 @@ public class Evento{
 		this.frequenciaEmMillissegundos = frequenciaEmMillissegundos;
 	}
 
-	public Boolean getFrequenciaAnalogica() {
-		return frequenciaAnalogica;
+	public Boolean getTemporizadorFixo() {
+		return temporizadorFixo;
 	}
 
-	public void setFrequenciaAnalogica(Boolean frequenciaAnalogica) {
-		this.frequenciaAnalogica = frequenciaAnalogica;
+	public void setTemporizadorFixo(Boolean frequenciaAnalogica) {
+		this.temporizadorFixo = frequenciaAnalogica;
 	}
 
 	

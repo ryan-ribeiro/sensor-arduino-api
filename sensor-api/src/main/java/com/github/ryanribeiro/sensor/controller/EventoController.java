@@ -77,7 +77,7 @@ public class EventoController{
 		
 		User user = new User();
 		user.setUserId(UUID.fromString(token.getName()));
-		eventoDTO.setUser(user);
+		eventoDTO.setUserId(user.getUserId());
 
 		eventoSaved = eventoServices.salvar(eventoDTO);
 
@@ -100,12 +100,38 @@ public class EventoController{
 	*/
 
 	//Se baseTimestamp não existir, exigir que cada leitura tenha um offset/índice ou usar hora de recepção (com perda de precisão).
-	//Resposta: retornar contagem de eventos criados ou lista de IDs; tornar idempotente quando possível.
 	//Nome: considerar /eventos/sync-offline ou /eventos/batch (mais claro que salvarDadoCasoWiFiCaiu).
 	// DAQ com temporizador fixo
+
+	/**
+	 * Salva um evento considerando cenários em que a conexão Wi‑Fi caiu.
+	 *
+	 * Comportamento:
+	 * - Se o DTO contém uma data (dataEvento) válida, salva o evento nessa data.
+	 * - Caso a data não seja fornecida:
+	 *   - Recupera a data do último evento salvo na API e a utiliza como base.
+	 *   - Se foi enviado frequenciaEmMillissegundos (temporizador), adiciona esse valor à data do último evento e salva o novo evento nessa data calculada.
+	 *   - Caso não tenha sido enviado frequenciaEmMillissegundos, mas a flag temporizadorFixo estiver ativada, calcula a diferença de tempo entre os dois últimos eventos salvos e usa essa diferença como temporizador para determinar a data do evento a ser salvo.
+	 *
+	 * Requisitos de segurança:
+	 * - Requer autorização com a autoridade 'SCOPE_USER'.
+	 *
+	 * Parâmetros:
+	 * @param eventoDTO DTO contendo os dados do evento a salvar (pode incluir dataEvento, frequenciaEmMillissegundos e temporizadorFixo).
+	 * @param token     token de autenticação JWT do usuário; o userId é obtido a partir de token.getName().
+	 *
+	 * Retorno:
+	 * @return ResponseEntity com status 201 (CREATED) e o EventoDTO salvo no corpo.
+	 *
+	 * Exceções:
+	 * @throws IllegalArgumentException se o token não contiver o identificador do usuário (token.getName() == null).
+	 * @throws EventoNotFoundException se não for possível recuperar o último evento necessário para calcular a data.
+	 * @throws
+	 */
 	@PostMapping("/salvarDadoCasoWiFiCaiu")
 	@PreAuthorize("hasAuthority('SCOPE_USER')")
 	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+	
 	public ResponseEntity<Object> salvarDadoCasoWiFiCaiu(@RequestBody EventoDTO eventoDTO,
 			JwtAuthenticationToken token) {
 		Long frequenciaEmMillissegundos = eventoDTO.getFrequenciaEmMillissegundos();
@@ -116,9 +142,9 @@ public class EventoController{
 		}
 		User user = new User();
 		user.setUserId(UUID.fromString(token.getName()));
-		eventoDTO.setUser(user);
+		eventoDTO.setUserId(user.getUserId());
 
-		if (frequenciaEmMillissegundos != null && eventoDTO.getFrequenciaAnalogica() == true) {
+		if (frequenciaEmMillissegundos != null && eventoDTO.getTemporizadorFixo() == true) {
 			// Se veio frequenciaEmMillissegundos válida, usar esse método
 			eventoSaved = eventoServices.salvar(eventoDTO);
 		} else {
@@ -147,7 +173,7 @@ public class EventoController{
 		User user = new User();
 		user.setUserId(UUID.fromString(token.getName()));
 
-		Date data = eventoServices.getLastDataEvento(user, arduino, tipoSensor, local);
+		Date data = eventoServices.getLastDataEvento(user.getUserId(), arduino, tipoSensor, local);
 		if (data == null) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Nenhum evento encontrado.");
 		}
