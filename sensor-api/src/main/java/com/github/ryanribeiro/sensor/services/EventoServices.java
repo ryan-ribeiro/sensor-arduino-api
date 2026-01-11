@@ -330,6 +330,7 @@ public class EventoServices {
 	}
 
 	// Para DAQ com temporizador fixo
+	@SuppressWarnings("null")
 	public long getEventoFrequencyDAQTempFixo(UUID userId, String arduino, String tipoSensor, String local) {
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado para userId: " + userId));

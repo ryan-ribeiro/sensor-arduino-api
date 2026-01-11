@@ -2,13 +2,19 @@
 #include <ESP8266HTTPClient.h>
 #include <Arduino_JSON.h>
 
-const char* ssid = "";
-const char* password = "";
+// Configurações da rede Wi-Fi conectada
+const char* ssid = "dev";
+const char* password = "qwer@123";
 
-const char* accessToken = "";
+// Configurações de login do usuário cadastrado na API
+String username = "ryan";
+String loginPassword = "123";
+
+String accessToken = "";
+  const char* loginEndpoint = "http://192.168.1.8:8080/login";
 
 //Your Domain name with URL path or IP address with path
-const char* serverName = "http://192.168.1.8:8080/eventos/1302";
+const char* getEvent = "http://192.168.1.8:8080/eventos/1302";
 
 // the following variables are unsigned longs because the time, measured in
 // milliseconds, will quickly become a bigger number than can be stored in an int.
@@ -33,6 +39,21 @@ void setup() {
   Serial.println("");
   Serial.print("Connected to WiFi network with IP Address: ");
   Serial.println(WiFi.localIP());
+
+  String returnedPayload = "";
+  // Chamar login
+  while(returnedPayload == "") {
+    returnedPayload = login(loginEndpoint, username, loginPassword);
+  }
+  // Extrair accessToken
+  accessToken = getAcessToken(returnedPayload);
+
+  if (accessToken == "") {
+    Serial.println("Não foi possível pegar o access token. Saindo...");
+    Serial.print("accessToken: ");
+    Serial.println(accessToken);
+    abort();
+  }
  
   Serial.println("Timer set to 5 seconds (timerDelay variable), it will take 5 seconds before publishing the first reading.");
 }
@@ -40,7 +61,7 @@ void setup() {
 void loop() {
   if ((millis() - lastTime) > timerDelay) {
     if(WiFi.status() == WL_CONNECTED){
-      sensorReadings = httpGETRequest(serverName);
+      sensorReadings = httpGETRequest(getEvent);
       JSONVar myObject = JSON.parse(sensorReadings);
   
       if (JSON.typeof(myObject) == "undefined") {
@@ -138,4 +159,51 @@ String httpGETRequest(const char* serverName) {
   http.end();
 
   return payload;
+}
+
+
+String login(const char* loginEndpoint, String username, String password) {
+  WiFiClient client;
+  HTTPClient http;
+
+  http.begin(client, loginEndpoint);
+
+  http.addHeader("Content-Type", "application/json");
+  String httpRequestData = "{\"username\":\"" + username + "\",\"password\":\""+ password + "\"}";
+
+  Serial.println(httpRequestData);
+
+  int httpResponseCode = http.POST(httpRequestData);
+
+  String payload = "{}"; 
+  
+  if (httpResponseCode == 200) {
+    Serial.print("HTTP Response code: ");
+    Serial.println(httpResponseCode);
+    payload = http.getString();
+  }
+  else {
+    Serial.print("Error code: ");
+    Serial.println(httpResponseCode);
+    http.end();
+    return "";
+  }
+
+  http.end();
+  return payload;
+}
+
+String getAcessToken(String returnedPayload) {
+  Serial.println(returnedPayload);
+  JSONVar myObject = JSON.parse(returnedPayload);
+
+  if (JSON.typeof(myObject) == "undefined") {
+    Serial.println("Parsing input failed!");
+    return "";
+  }
+
+  if (myObject.hasOwnProperty("accessToken")) {
+    return String((const char*) myObject["accessToken"]);
+  }
+  return "";
 }
