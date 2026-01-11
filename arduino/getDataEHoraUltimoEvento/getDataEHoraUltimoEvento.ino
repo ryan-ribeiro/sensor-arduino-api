@@ -2,19 +2,25 @@
 #include <ESP8266HTTPClient.h>
 #include <Arduino_JSON.h>
 
-const char* ssid = "";
-const char* password = "";
+// Configurações da rede Wi-Fi conectada
+const char* ssid = "dev";
+const char* password = "qwer@123";
 
-const char* accessToken = "eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJzZW5zb3ItYXBpIiwic3ViIjoiYzMyZDY1ODAtNWY0ZS00ZGNkLWI0YmEtY2U4Zjk5YzMzM2RjIiwiZXhwIjoxNzY3NzE0MzMyLCJpYXQiOjE3Njc2NjAzMzIsInNjb3BlIjoiVVNFUiJ9.GDww2EGlTc82hdC7_409GYA6Uq_J9NvVKkTpZb66ColhWd_sbEtwnljjejiOHHObPfA5Vft4GSRvWY3Xp0fxr7bfKjZwNXuqUiXB1Vx4ADr3Rm7s8xGRkvHoDVgjfDJGMDSzWVi-e-zZnuMTY0-KdVcgS4zt-GWSjm7W6vBHX-3drk0Xzu0HnZm8CPy_USmUGq1B-PfGq3LeO2_RmOZEucSkY2do7lHvGWPI_ml3iMd-yajTCmyY4iToV1QJKAXWGUqJUQw6ecxSJA1l4E9Yq9EfUOdFYokxM719xIXRCQq_uZ8mzI-QjNi1D6JICanNdobYTBSFbVPjMEBeBvPK_A";
+// Configurações de login do usuário cadastrado na API
+String username = "ryan";
+String loginPassword = "123";
+
+// Token de acesso para a API
+String accessToken = "";
+const char* loginEndpoint = "http://192.168.1.8:8080/login";
+
+// Endereço para o endpoint /data-ultimo-evento
 const char* dataUltimoEventoEndpoint = "http://192.168.1.8:8080/eventos/data-ultimo-evento?arduino=esp32&tipoSensor=dht11&local=home";
 
 // the following variables are unsigned longs because the time, measured in
 // milliseconds, will quickly become a bigger number than can be stored in an int.
 unsigned long lastTime = 0;
 unsigned long timerDelay = 5000;
-
-String eventoRetornado;
-float eventoRetornadoArr[3];
 
 void setup() {
   Serial.begin(115200);
@@ -28,6 +34,21 @@ void setup() {
   Serial.println("");
   Serial.print("Connected to WiFi network with IP Address: ");
   Serial.println(WiFi.localIP());
+
+  String returnedPayload = "";
+  // Chamar login
+  while(returnedPayload == "") {
+    returnedPayload = login(loginEndpoint, username, loginPassword);
+  }
+  // Extrair accessToken
+  accessToken = getAcessToken(returnedPayload);
+
+  if (accessToken == "") {
+    Serial.println("Não foi possível pegar o access token. Saindo...");
+    Serial.print("accessToken: ");
+    Serial.println(accessToken);
+    abort();
+  }
  
   Serial.println("Timer set to 5 seconds (timerDelay variable), it will take 5 seconds before publishing the first reading.");
 }
@@ -77,4 +98,51 @@ String httpGETRequest(const char* serverName) {
   http.end();
 
   return payload;
+}
+
+
+String login(const char* loginEndpoint, String username, String password) {
+  WiFiClient client;
+  HTTPClient http;
+
+  http.begin(client, loginEndpoint);
+
+  http.addHeader("Content-Type", "application/json");
+  String httpRequestData = "{\"username\":\"" + username + "\",\"password\":\""+ password + "\"}";
+
+  Serial.println(httpRequestData);
+
+  int httpResponseCode = http.POST(httpRequestData);
+
+  String payload = "{}"; 
+  
+  if (httpResponseCode == 200) {
+    Serial.print("HTTP Response code: ");
+    Serial.println(httpResponseCode);
+    payload = http.getString();
+  }
+  else {
+    Serial.print("Error code: ");
+    Serial.println(httpResponseCode);
+    http.end();
+    return "";
+  }
+
+  http.end();
+  return payload;
+}
+
+String getAcessToken(String returnedPayload) {
+  Serial.println(returnedPayload);
+  JSONVar myObject = JSON.parse(returnedPayload);
+
+  if (JSON.typeof(myObject) == "undefined") {
+    Serial.println("Parsing input failed!");
+    return "";
+  }
+
+  if (myObject.hasOwnProperty("accessToken")) {
+    return String((const char*) myObject["accessToken"]);
+  }
+  return "";
 }
