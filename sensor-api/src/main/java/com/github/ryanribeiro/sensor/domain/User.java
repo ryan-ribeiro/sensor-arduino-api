@@ -1,8 +1,11 @@
 package com.github.ryanribeiro.sensor.domain;
 
+import java.util.Date;
 import java.util.Set;
 import java.util.UUID;
 
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.github.ryanribeiro.sensor.dto.LoginRequestDTO;
@@ -19,7 +22,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "tb_users")
-public class User {
+public class User{
     @Id
     @GeneratedValue(strategy = jakarta.persistence.GenerationType.UUID)
     @Column(name = "user_id", updatable = false, nullable = false)
@@ -29,6 +32,14 @@ public class User {
     private String username;
 
     private String password;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private Date createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private Date updatedAt;
 
     @ManyToMany(
         cascade = jakarta.persistence.CascadeType.ALL,
@@ -52,12 +63,14 @@ public class User {
         this.userId = userId;
     }
 
-    public User(UUID userId, String username, String password, Set<Role> roles, Set<Evento> eventos) {
+    public User(UUID userId, String username, String password, Set<Role> roles, Set<Evento> eventos, Date createdAt, Date updatedAt) {
         this.userId = userId;
         this.username = username;
         this.password = password;
         this.roles = roles;
         this.eventos = eventos;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public UUID getUserId() {
