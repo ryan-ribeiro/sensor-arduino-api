@@ -35,20 +35,7 @@ void setup() {
   Serial.print("Connected to WiFi network with IP Address: ");
   Serial.println(WiFi.localIP());
 
-  String returnedPayload = "";
-  // Chamar login
-  while(returnedPayload == "") {
-    returnedPayload = login(loginEndpoint, username, loginPassword);
-  }
-  // Extrair accessToken
-  accessToken = getAcessToken(returnedPayload);
-
-  if (accessToken == "") {
-    Serial.println("Não foi possível pegar o access token. Saindo...");
-    Serial.print("accessToken: ");
-    Serial.println(accessToken);
-    abort();
-  }
+  auth();
  
   Serial.println("Timer set to 5 seconds (timerDelay variable), it will take 5 seconds before publishing the first reading.");
 }
@@ -97,7 +84,30 @@ String httpGETRequest(const char* serverName) {
   // Free resources
   http.end();
 
+  // Se retornou um 401, o token exipirou. Então, apenas pega outro.
+  // Assumimos então que a API não terá alterações que impeçam esse lógica de funcionar
+  if (httpResponseCode == 401) {
+    auth();
+  }
+
   return payload;
+}
+
+void auth() {
+  String returnedPayload = "";
+  // Chamar login
+  while(returnedPayload == "") {
+    returnedPayload = login(loginEndpoint, username, loginPassword);
+  }
+  // Extrair accessToken
+  accessToken = getAcessToken(returnedPayload);
+
+  if (accessToken == "") {
+    Serial.println("Não foi possível pegar o access token. Saindo...");
+    Serial.print("accessToken: ");
+    Serial.println(accessToken);
+    abort();
+  }
 }
 
 
