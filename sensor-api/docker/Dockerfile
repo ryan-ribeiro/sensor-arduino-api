@@ -22,8 +22,15 @@ FROM base as test
 WORKDIR /build
 COPY ./src src/
 COPY pom.xml pom.xml
+# Add this ARG to accept the build argument
+ARG TESTCONTAINERS_DISABLED=0
+
 RUN --mount=type=cache,target=/root/.m2 \
-    ./mvnw test
+    if [ "$TESTCONTAINERS_DISABLED" = "1" ]; then \
+        ./mvnw test -Dgroups='!integration'; \
+    else \
+        ./mvnw test; \
+    fi
 
 FROM base as deps21
 WORKDIR /build
