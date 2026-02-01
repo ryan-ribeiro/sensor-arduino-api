@@ -29,7 +29,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./sensor-arduino-api
-          file: sensor-arduino-api/sensor-api/docker/Dockerfile
+          file: /sensor-api/docker/Dockerfile
           target: test
           load: true
 
@@ -38,7 +38,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./sensor-arduino-api
-          file: sensor-arduino-api/sensor-api/docker/Dockerfile
+          file: /sensor-api/docker/Dockerfile
           platforms: linux/amd64,linux/arm64
           target: test
           load: true
