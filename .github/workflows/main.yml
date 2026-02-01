@@ -60,15 +60,8 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       # 2. Build e Teste apontando para o caminho correto
-      - name: Build and test
-        uses: docker/build-push-action@v6
-        with:
-          context: ./sensor-api
-          file: ./sensor-api/docker/Dockerfile
-          build-args: |
-            TESTCONTAINERS_DISABLED=1
-          target: test
-          load: true
+      - name: Run tests with Maven
+        run: ./mvnw test
 
       # 3. Build e Push com multi-plataforma
       - name: Build and push
