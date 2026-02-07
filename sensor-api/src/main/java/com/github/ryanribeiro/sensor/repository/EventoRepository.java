@@ -4,10 +4,12 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 import com.github.ryanribeiro.sensor.domain.Evento;
 import com.github.ryanribeiro.sensor.domain.User;
 
+@Repository
 public interface EventoRepository extends JpaRepository<Evento, Long>{
 
     // Busca eventos pelo user.userId (UUID). Campo na entidade User é `userId`.

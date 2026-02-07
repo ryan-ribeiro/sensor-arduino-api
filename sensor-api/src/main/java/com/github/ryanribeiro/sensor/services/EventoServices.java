@@ -417,4 +417,28 @@ public class EventoServices {
 		
 		return dataDTO;
 	}
+
+	public String getLastEventoId(UUID userId, String arduino, String tipoSensor, String local) {
+		User user = new User();
+		user.setUserId(userId);
+		return eventoRepository.findTop1ByUserAndTipoSensorAndArduinoAndLocalOrderByDataEventoDesc(
+				user,
+				tipoSensor,
+				arduino,
+				local
+		).map(evento -> evento.getId().toString())
+		.orElse(null);
+	}
+
+	public EventoDTO getLastEvento(UUID userId, String arduino, String tipoSensor, String local) {
+		User user = new User();
+		user.setUserId(userId);
+		return eventoRepository.findTop1ByUserAndTipoSensorAndArduinoAndLocalOrderByDataEventoDesc(
+				user,
+				tipoSensor,
+				arduino,
+				local
+		).map(EventoDTO::new)
+		.orElse(null);
+	}
 }

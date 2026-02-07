@@ -180,4 +180,40 @@ public class EventoController{
 		return ResponseEntity.ok(data.toString());
 	}
 
+	@GetMapping("/id-ultimo-evento")
+	@PreAuthorize("hasAuthority('SCOPE_USER')")
+	public String getLastEventoId(
+			@RequestParam String arduino,
+			@RequestParam String tipoSensor, 
+			@RequestParam String local,
+			JwtAuthenticationToken token	
+	) {
+		User user = new User();
+		user.setUserId(UUID.fromString(token.getName()));
+
+		String id = eventoServices.getLastEventoId(user.getUserId(), arduino, tipoSensor, local);
+		if (id == null) {
+			return "Nenhum evento encontrado.";
+		}
+		return id;
+	}
+
+	@GetMapping("/ultimo-evento")
+	@PreAuthorize("hasAuthority('SCOPE_USER')")
+	public ResponseEntity<EventoDTO> getLastEvento(
+		@RequestParam String arduino,
+		@RequestParam String tipoSensor, 
+		@RequestParam String local,
+		JwtAuthenticationToken token	
+	) {
+		User user = new User();
+		user.setUserId(UUID.fromString(token.getName()));
+
+		EventoDTO evento = eventoServices.getLastEvento(user.getUserId(), arduino, tipoSensor, local);
+		if (evento == null) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+		}
+		return ResponseEntity.ok(evento);
+	}
+
 }
