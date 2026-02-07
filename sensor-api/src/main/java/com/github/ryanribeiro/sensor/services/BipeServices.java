@@ -1,5 +1,6 @@
 package com.github.ryanribeiro.sensor.services;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.BeanUtils;
@@ -32,31 +33,31 @@ public class BipeServices {
      public BipeDTO getLastBipe(
         String senderId, String receiverId, String local, String arduino
     ) {
-         Bipe bipe = bipeRepository.findTop1BySender_UserIdAndReceiver_UserIdAndLocalAndArduinoOrderByCreatedAtDesc(
+         Optional<Bipe> bipe = Optional.ofNullable(bipeRepository.findTop1BySender_UserIdAndReceiver_UserIdAndLocalAndArduinoOrderByCreatedAtDesc(
             UUID.fromString(senderId), 
             UUID.fromString(receiverId), 
             local, 
             arduino
-        );
-         if (bipe == null) {
+        ).orElse(null));
+         if (bipe.isEmpty()) {
              throw new RuntimeException("Nenhum bipe encontrado para os parâmetros fornecidos.");
          }
-         return new BipeDTO(bipe);
+         return new BipeDTO(bipe.get());
     }
 
     public String getLastBipeId(
         String senderId, String receiverId, String local, String arduino
     ) {
-         Bipe bipe = bipeRepository.findTop1BySender_UserIdAndReceiver_UserIdAndLocalAndArduinoOrderByCreatedAtDesc(
+         Optional<Bipe> bipe = Optional.ofNullable(bipeRepository.findTop1BySender_UserIdAndReceiver_UserIdAndLocalAndArduinoOrderByCreatedAtDesc(
             UUID.fromString(senderId), 
             UUID.fromString(receiverId), 
             local, 
             arduino
-        );
-         if (bipe == null) {
+        ).orElse(null));
+         if (bipe.isEmpty()) {
              throw new RuntimeException("Nenhum bipe encontrado para os parâmetros fornecidos.");
          }
-         return bipe.getId().toString();
+         return bipe.get().getId().toString();
     }
 
     public BipeDTO getBipeById(String bipeId, String senderId) {
@@ -70,12 +71,15 @@ public class BipeServices {
             throw new IllegalArgumentException("ID do bipe deve ser um número positivo");
         }
 
-        Bipe bipe = bipeRepository.findById(Long.parseLong(bipeId))
-            .orElseThrow(() -> new RuntimeException("Bipe não encontrado com id: " + bipeId + " para o usuário: " + senderId));
+        Optional<Bipe> bipe = bipeRepository.findById(Long.parseLong(bipeId));
         
-        if (bipe.getSender() != null && !bipe.getSender().getUserId().equals(UUID.fromString(senderId))) {
+        if (bipe.isEmpty()) {
+            throw new RuntimeException("Bipe não encontrado com id: " + bipeId + " para o usuário: " + senderId);
+        }
+
+        if (bipe.get().getSender() != null && !bipe.get().getSender().getUserId().equals(UUID.fromString(senderId))) {
             throw new RuntimeException("Acesso negado: o bipe não pertence ao usuário autenticado.");
         }
-        return new BipeDTO(bipe);
+        return new BipeDTO(bipe.get());
     }
 }

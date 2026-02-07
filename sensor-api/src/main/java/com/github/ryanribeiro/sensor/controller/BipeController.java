@@ -26,10 +26,9 @@ public class BipeController {
 
     @Autowired
     private BipeServices bipeServices;
-
-    // Recuperar receiver id a partir de busca na tabela de usuarios?
-    // E se eu não souber o receiverId? Deveria ser obrigatório ou não? Talvez seja melhor não ser obrigatório, e o sistema pode buscar o último bipe enviado para aquele local e arduino, independente do receiverId. Mas isso pode causar problemas de segurança, pois qualquer usuário poderia acessar os bipes de outros usuários. Talvez seja melhor manter o receiverId como obrigatório, para garantir que apenas o destinatário correto possa acessar o bipe.
-
+    //TODO: retirar senderId e receiverId como variáveis obrigatórias de serem passadas
+    // Assume a chave composta local + arduino
+    
     @PostMapping("/enviarBipe")
     @PreAuthorize("hasAuthority('SCOPE_USER')")
     @Transactional(readOnly = false, propagation = Propagation.REQUIRED)

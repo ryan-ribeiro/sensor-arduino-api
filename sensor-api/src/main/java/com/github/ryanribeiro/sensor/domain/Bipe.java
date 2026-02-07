@@ -30,7 +30,7 @@ public class Bipe {
 
     @ManyToOne
     @JoinColumn(name = "receiver_id", nullable = false)
-    private User receiver;
+    private User receiver; // evento.userId -> receiver
 
     @Column(name="created_at", nullable = false, updatable = false) // Ensures this field isn't updated on subsequent saves
     @JsonInclude(value = JsonInclude.Include.NON_NULL)
