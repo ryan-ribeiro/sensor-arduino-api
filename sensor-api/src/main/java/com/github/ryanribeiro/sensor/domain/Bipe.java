@@ -17,12 +17,16 @@ public class Bipe {
     @Column(name = "mensagem")
     private String mensagem;
 
-    //TODO: se extende Evento, não precisa desses campos, ou seja, local e arduino já estão na classe pai Evento
+    @Column(name = "local_sender")
+    private String localSender;   // Local do bipe do sender
+    @Column(name = "arduino_sender")
+    private String arduinoSender; // Arduino do bipe do sender
+
     @Column(name = "local")
-    private String local;
+    private String local;   // Local do bipe do receiver
 
     @Column(name = "arduino")
-    private String arduino;
+    private String arduino; // Arduino do bipe do receiver
 
     @ManyToOne
     @JoinColumn(name = "sender_id", nullable = false)
@@ -94,5 +98,20 @@ public class Bipe {
 
     public void setReceiver(User receiver) {
         this.receiver = receiver;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

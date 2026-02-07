@@ -28,7 +28,7 @@ public class BipeController {
     private BipeServices bipeServices;
     //TODO: retirar senderId e receiverId como variáveis obrigatórias de serem passadas
     // Assume a chave composta local + arduino
-    
+
     @PostMapping("/enviarBipe")
     @PreAuthorize("hasAuthority('SCOPE_USER')")
     @Transactional(readOnly = false, propagation = Propagation.REQUIRED)
@@ -39,10 +39,6 @@ public class BipeController {
         }
         
         bipeDTO.setSenderId(UUID.fromString(token.getName()));
-
-        if (token.getName() == null || bipeDTO.getReceiverId() == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("SenderId ou ReceiverId não pode ser nulo.");
-        }
 
         bipeSaved = bipeServices.enviarBipe(bipeDTO);
 
@@ -92,17 +88,81 @@ public class BipeController {
         }
         return ResponseEntity.ok(id);
     }
+
+    @GetMapping("/hora-ultimo-bipe")
+    @PreAuthorize("hasAuthority('SCOPE_USER')")
+    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
+    public ResponseEntity<String> getLastBipeHora(
+        @RequestParam String receiverId,
+        @RequestParam String local,
+        @RequestParam String arduino,
+        JwtAuthenticationToken token	
+    ) {
+        BipeDTO bipe = bipeServices.getLastBipe(
+            token.getName(), 
+            receiverId,
+            local, 
+            arduino
+        );
+        if (bipe == null) {
+            throw new RuntimeException("Nenhum bipe encontrado para os parâmetros fornecidos.");
+        }
+        return ResponseEntity.ok(bipe.getCreatedAt().toString());
+    }
+
+    //TODO:Getter para antes e depois do created at do bipe passado?
+
     
-    @GetMapping("/{id}")
+    @GetMapping("")
     @PreAuthorize("hasAuthority('SCOPE_USER')")
     @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
     public ResponseEntity<BipeDTO> getBipeById(
-                @PathVariable String id,
+                @RequestParam String id,
                 JwtAuthenticationToken token
     ) {
         try {
             BipeDTO bipe = bipeServices.getBipeById(id, token.getName());
             return ResponseEntity.ok(bipe);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+
+    @GetMapping("/before")
+    @PreAuthorize("hasAuthority('SCOPE_USER')")
+    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
+    public ResponseEntity<BipeDTO> getBipeBeforeBipeId(
+                @RequestParam String id,
+                JwtAuthenticationToken token
+    ) {
+        try {
+            BipeDTO bipe = bipeServices.getBipeById(id, token.getName());
+            if (bipe == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+            // Get bipe before the given bipe id
+            BipeDTO bipeBefore = bipeServices.findFirstBipeBeforeId(id, token.getName());
+            return ResponseEntity.ok(bipeBefore);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+
+    @GetMapping("/after")
+    @PreAuthorize("hasAuthority('SCOPE_USER')")
+    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
+    public ResponseEntity<BipeDTO> getBipeAfterBipeId(
+                @RequestParam String id,
+                JwtAuthenticationToken token
+    ) {
+        try {
+            BipeDTO bipe = bipeServices.getBipeById(id, token.getName());
+            // Get bipe after the given bipe id
+            if (bipe == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+            BipeDTO bipeAfter = bipeServices.findFirstBipeAfterId(id, token.getName());
+            return ResponseEntity.ok(bipeAfter);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }

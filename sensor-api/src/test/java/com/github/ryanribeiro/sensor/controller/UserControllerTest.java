@@ -38,7 +38,7 @@ public class UserControllerTest {
     @SuppressWarnings("null")
     @Test
     void createUserReturnsCreated() throws Exception {
-        CreateUserDTO dto = new CreateUserDTO("ryann", "123456");
+        CreateUserDTO dto = new CreateUserDTO("ryann", "123456", "local1", "arduino1");
 
         doNothing().when(userServices).createUser(org.mockito.ArgumentMatchers.any(com.github.ryanribeiro.sensor.dto.CreateUserDTO.class));
 

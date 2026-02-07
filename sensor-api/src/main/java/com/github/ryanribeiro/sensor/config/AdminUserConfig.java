@@ -35,14 +35,21 @@ public class AdminUserConfig implements CommandLineRunner {
 
         var userAdmin = userRepository.findByUsername("admin");
 
-        if (userAdmin.isPresent() && roleAdmin != null) {
+        if (userAdmin.isPresent()) {
             System.out.println("Admin já existe");
-        } else {
-            var user = new User();
-            user.setUsername("admin");
-            user.setPassword(bCryptPasswordEncoder.encode("admin"));
-            user.setRoles(Set.of(roleAdmin != null ? (Role) roleAdmin : new Role(Role.Values.ROLE_ADMIN.name())));
-            userRepository.save(user);
+            return;
         }
+
+        if (roleAdmin == null) {
+            roleAdmin = roleRepository.save(new Role(Role.Values.ROLE_ADMIN.name()));
+        }
+
+        var user = new User();
+        user.setUsername("admin");
+        user.setPassword(bCryptPasswordEncoder.encode("admin"));
+        user.setLocal("admin");
+        user.setArduino("admin");
+        user.setRoles(Set.of(roleAdmin));
+        userRepository.save(user);
     }
 }

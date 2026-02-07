@@ -7,6 +7,8 @@ import com.github.ryanribeiro.sensor.domain.Bipe;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import java.time.Instant;
+
 public class BipeDTO {
     private Long id;
     @NotNull
@@ -18,7 +20,11 @@ public class BipeDTO {
     @NotNull
     @NotBlank
     private String arduino;
-    @NotNull
+
+    private Instant createdAt;
+
+    private Instant updatedAt;
+
     private UUID senderId;
 
     @NotNull
@@ -28,16 +34,18 @@ public class BipeDTO {
     }
 
     public BipeDTO(Bipe bipe) {
-        this(bipe.getId(), bipe.getMensagem(), bipe.getLocal(), bipe.getArduino(), bipe.getSender().getUserId(), bipe.getReceiver().getUserId());
+        this(bipe.getId(), bipe.getMensagem(), bipe.getLocal(), bipe.getArduino(), bipe.getSender().getUserId(), bipe.getReceiver().getUserId(), bipe.getCreatedAt(), bipe.getUpdatedAt());
     }
 
-    public BipeDTO(Long id, String mensagem, String local, String arduino, UUID senderId, UUID receiverId ) {
+    public BipeDTO(Long id, String mensagem, String local, String arduino, UUID senderId, UUID receiverId, Instant createdAt, Instant updatedAt ) {
         this.id = id;
         this.mensagem = mensagem;
         this.local = local;
         this.arduino = arduino;
         this.senderId = senderId;
         this.receiverId = receiverId;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public Long getId() {
@@ -86,5 +94,21 @@ public class BipeDTO {
 
     public void setArduino(String arduino) {
         this.arduino = arduino;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

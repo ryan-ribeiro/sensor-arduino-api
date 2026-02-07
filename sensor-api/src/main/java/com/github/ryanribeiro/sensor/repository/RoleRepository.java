@@ -8,5 +8,5 @@ import com.github.ryanribeiro.sensor.domain.Role;
 @Repository
 public interface RoleRepository extends JpaRepository<Role, Long>{
 
-    Object findByName(String string);
+    Role findByName(String name);
 }

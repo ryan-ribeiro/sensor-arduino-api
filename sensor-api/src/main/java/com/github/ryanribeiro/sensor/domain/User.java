@@ -33,6 +33,12 @@ public class User{
 
     private String password;
 
+    @Column(name = "local")
+    private String local;
+
+    @Column(name = "arduino")
+    private String arduino;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Date createdAt;
@@ -63,12 +69,16 @@ public class User{
         this.userId = userId;
     }
 
-    public User(UUID userId, String username, String password, Set<Role> roles, Set<Evento> eventos, Date createdAt, Date updatedAt) {
+    public User(UUID userId, String username, String password, String local, String arduino, Set<Role> roles, Set<Evento> eventos, Date createdAt, Date updatedAt) {
         this.userId = userId;
         this.username = username;
         this.password = password;
+        this.local = local;
+        this.arduino = arduino;
         this.roles = roles;
         this.eventos = eventos;
+        this.local = local;
+        this.arduino = arduino;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -95,6 +105,22 @@ public class User{
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getLocal() {
+        return local;
+    }
+
+    public void setLocal(String local) {
+        this.local = local;
+    }
+
+    public String getArduino() {
+        return arduino;
+    }
+
+    public void setArduino(String arduino) {
+        this.arduino = arduino;
     }
 
     public Set<Role> getRoles() {

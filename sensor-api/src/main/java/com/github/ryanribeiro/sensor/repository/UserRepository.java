@@ -11,4 +11,6 @@ import com.github.ryanribeiro.sensor.domain.User;
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByUsername(String username);
+
+    Optional<User> findByLocalAndArduino(String local, String arduino);
 }
