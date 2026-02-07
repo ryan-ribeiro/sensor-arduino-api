@@ -8,6 +8,7 @@
             "mainClass": "com.github.ryanribeiro.sensor.SensorApiApplication",
             "projectName": "sensor-api",
             "args": "",
+            "vmArgs": "-Xint",
             "envFile": "${workspaceFolder}/.env"
         }
     ]
