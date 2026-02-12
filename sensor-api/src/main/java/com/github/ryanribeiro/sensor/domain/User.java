@@ -32,7 +32,10 @@ public class User{
     private String username;
 
     private String password;
-
+    
+    //TODO: Adicionar SET<local> e Set<arduino>
+    //TODO: Adicionar handler para modificar local e arduino, para evitar que haja mais de um usuário com o mesmo local ou arduino 
+    //TODO: Criar model/DTO BipeUser, para não precisar alterar o model User, que já é usado para outros fins. BipeUser teria uma associação com User e Bipe
     @Column(name = "local")
     private String local;
 

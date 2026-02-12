@@ -14,6 +14,8 @@ import com.github.ryanribeiro.sensor.dto.CreateUserDTO;
 import com.github.ryanribeiro.sensor.repository.RoleRepository;
 import com.github.ryanribeiro.sensor.repository.UserRepository;
 
+import com.github.ryanribeiro.sensor.dto.UpdateUserDTO;
+
 @Service
 public class UserServices {
     
@@ -63,5 +65,17 @@ public class UserServices {
 
     public List<User> getAllUsers() {
         return userRepository.findAll();
+    }
+
+    public UpdateUserDTO updateUserBipeInfo(String username, String local, String arduino) {
+        var userOptional = userRepository.findByUsername(username);
+        if (userOptional.isEmpty()) {
+            return null;
+        }
+        User user = userOptional.get();
+        user.setLocal(local);
+        user.setArduino(arduino);
+        userRepository.save(user);
+        return new UpdateUserDTO(user.getUsername(), user.getLocal(), user.getArduino());
     }
 }

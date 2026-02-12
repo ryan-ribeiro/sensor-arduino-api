@@ -1,5 +1,6 @@
 package com.github.ryanribeiro.sensor.services;
 
+import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -8,12 +9,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.github.ryanribeiro.sensor.domain.Bipe;
+import com.github.ryanribeiro.sensor.exceptions.AccessDeniedException;
+import com.github.ryanribeiro.sensor.exceptions.GenericException;
 import com.github.ryanribeiro.sensor.domain.User;
 import com.github.ryanribeiro.sensor.dto.BipeDTO;
 import com.github.ryanribeiro.sensor.repository.BipeRepository;
 import com.github.ryanribeiro.sensor.repository.UserRepository;
 
-import java.time.Instant;
+import java.nio.charset.StandardCharsets;
 
 @Service
 public class BipeServices {
@@ -24,6 +27,49 @@ public class BipeServices {
     @Autowired
     private UserRepository userRepository;
 
+    public String encodeBase64(String mensagem) {
+        try {
+            return Base64.getEncoder().encodeToString(mensagem.getBytes(StandardCharsets.UTF_8));
+        } catch (IllegalArgumentException e) {
+            throw new GenericException("Mensagem inválida: não é uma string válida.", e);
+        }
+    }
+
+    public String decodeBase64(String hash) {
+        try {
+            byte[] decodedBytes = Base64.getDecoder().decode(hash);
+            return new String(decodedBytes, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            throw new GenericException("Hash inválida: não é uma string Base64 válida.", e);
+        }
+    }
+
+    private boolean isValidBase64(String str) {
+        if (str == null || str.isEmpty()) {
+            return false;
+        }
+        try {
+            Base64.getDecoder().decode(str);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private String safeDecodeBase64(String mensagem) {
+        if (mensagem == null) {
+            return null;
+        }
+        if (isValidBase64(mensagem)) {
+            try {
+                return decodeBase64(mensagem);
+            } catch (GenericException e) {
+                return mensagem; // Retorna a mensagem original se falhar
+            }
+        }
+        return mensagem; // Retorna a mensagem original se não for Base64
+    }
+    
     public BipeDTO enviarBipe(BipeDTO bipeDto) {
         if (bipeDto == null) {
             throw new IllegalArgumentException("BipeDTO não pode ser nulo");
@@ -48,31 +94,47 @@ public class BipeServices {
         BeanUtils.copyProperties(bipeDto, bipe);
         bipe.setSender(sender);
         bipe.setReceiver(receiver);
-        return new BipeDTO(bipeRepository.save(bipe));
+
+        // Encode a mensagem em Base64 antes de salvar
+        try {
+            bipe.setMensagem(encodeBase64(bipeDto.getMensagem()));
+        } catch (GenericException e) {
+            throw new GenericException("Erro ao codificar a mensagem: " + e.getMessage(), e);
+        }
+        bipeRepository.save(bipe);
+        bipe.setMensagem(safeDecodeBase64(bipe.getMensagem()));
+        return new BipeDTO(bipe);
     }
 
      public BipeDTO getLastBipe(
-        String senderId, String receiverId, String local, String arduino
+        String senderId, String local, String arduino
     ) {
-         Optional<Bipe> bipe = Optional.ofNullable(bipeRepository.findTop1ByLocalAndArduinoOrderByCreatedAtDesc(
+         Optional<Bipe> bipe = Optional.ofNullable(bipeRepository.findTop1ByReceiverUserIdAndLocalAndArduinoOrderByCreatedAtDesc(
+            UUID.fromString(senderId),
             local, 
             arduino
         ).orElse(null));
          if (bipe.isEmpty()) {
-             throw new RuntimeException("Nenhum bipe encontrado para os parâmetros fornecidos.");
+             throw new IllegalArgumentException("Nenhum bipe encontrado para os parâmetros fornecidos.");
          }
-         return new BipeDTO(bipe.get());
+
+         // Decode a mensagem do bipe antes de retornar
+         BipeDTO bipeEntity = new BipeDTO(bipe.get());
+         bipeEntity.setMensagem(safeDecodeBase64(bipeEntity.getMensagem()));
+
+         return bipeEntity;
     }
 
     public String getLastBipeId(
-        String senderId, String receiverId, String local, String arduino
+        String senderId, String local, String arduino
     ) {
-         Optional<Bipe> bipe = Optional.ofNullable(bipeRepository.findTop1ByLocalAndArduinoOrderByCreatedAtDesc(
+         Optional<Bipe> bipe = Optional.ofNullable(bipeRepository.findTop1ByReceiverUserIdAndLocalAndArduinoOrderByCreatedAtDesc(
+            UUID.fromString(senderId),
             local, 
             arduino
         ).orElse(null));
          if (bipe.isEmpty()) {
-             throw new RuntimeException("Nenhum bipe encontrado para os parâmetros fornecidos.");
+             throw new IllegalArgumentException("Nenhum bipe encontrado para os parâmetros fornecidos.");
          }
          return bipe.get().getId().toString();
     }
@@ -91,43 +153,53 @@ public class BipeServices {
             throw new IllegalArgumentException("ID do bipe deve ser um número positivo");
         }
 
-        Optional<Bipe> bipe = bipeRepository.findById(Long.parseLong(bipeId));
-        
+        Optional<Bipe> bipe = Optional.ofNullable(bipeRepository.findByIdAndReceiverUserId(Long.parseLong(bipeId), UUID.fromString(senderId)).orElse(null));
         if (bipe.isEmpty()) {
-            throw new RuntimeException("Bipe não encontrado com id: " + bipeId + " para o usuário: " + senderId);
+            throw new IllegalArgumentException("Bipe não encontrado com id: " + bipeId + " para o usuário: " + senderId);
         }
+        // Decode da mensagem do bipe antes de retornar
+        BipeDTO bipeEntity = new BipeDTO(bipe.get());
+        bipeEntity.setMensagem(safeDecodeBase64(bipeEntity.getMensagem()));
 
-        if (bipe.get().getSender() != null && !bipe.get().getSender().getUserId().equals(UUID.fromString(senderId))) {
-            throw new RuntimeException("Acesso negado: o bipe não pertence ao usuário autenticado.");
+        if (bipe.get().getReceiver() != null && !bipe.get().getReceiver().getUserId().equals(UUID.fromString(senderId))) {
+            throw new AccessDeniedException("Acesso negado: o bipe não pertence ao usuário autenticado.");
         }
-        return new BipeDTO(bipe.get());
+        return bipeEntity;
     }
 
     public BipeDTO findFirstBipeBeforeId(String id, String senderId) {
-        Optional<Bipe> bipe = bipeRepository.findFirstByIdLessThanOrderByIdDesc(Long.parseLong(id));
+        Optional<Bipe> bipe = Optional.ofNullable(bipeRepository.findFirstByIdLessThanAndReceiverUserIdOrderByIdDesc(Long.parseLong(id), UUID.fromString(senderId)).orElse(null));
 
-        if (bipe.isEmpty()) {
-            throw new RuntimeException("Nenhum bipe encontrado antes do ID: " + id);    
+        if (bipe == null || bipe.isEmpty()) {
+            throw new IllegalArgumentException("Nenhum bipe encontrado antes do ID: " + id);    
         }
 
-        if (bipe.get().getSender() != null && !bipe.get().getSender().getUserId().equals(UUID.fromString(senderId))) {
-            throw new RuntimeException("Acesso negado: o bipe não pertence ao usuário autenticado.");
+        if (bipe.get().getReceiver() != null && !bipe.get().getReceiver().getUserId().equals(UUID.fromString(senderId))) {
+            throw new AccessDeniedException("Acesso negado: o bipe não pertence ao usuário autenticado.");
         }
 
-        return new BipeDTO(bipe.get());
+        // Decode da mensagem do bipe antes de retornar
+        BipeDTO bipeEntity = new BipeDTO(bipe.get());
+        bipeEntity.setMensagem(safeDecodeBase64(bipeEntity.getMensagem()));
+
+        return bipeEntity;
     }
 
     public BipeDTO findFirstBipeAfterId(String id, String senderId) {
-        Optional<Bipe> bipe = bipeRepository.findFirstByIdGreaterThanOrderByIdAsc(Long.parseLong(id));
+        Optional<Bipe> bipe = Optional.ofNullable(bipeRepository.findFirstByIdGreaterThanAndReceiverUserIdOrderByIdAsc(Long.parseLong(id), UUID.fromString(senderId)).orElse(null));
 
-        if (bipe.isEmpty()) {
-            throw new RuntimeException("Nenhum bipe encontrado depois do ID: " + id);    
+        if (bipe == null || bipe.isEmpty()) {
+            throw new IllegalArgumentException("Nenhum bipe encontrado depois do ID: " + id);    
         }
 
-        if (bipe.get().getSender() != null && !bipe.get().getSender().getUserId().equals(UUID.fromString(senderId))) {
-            throw new RuntimeException("Acesso negado: o bipe não pertence ao usuário autenticado.");
+        if (bipe.get().getReceiver() != null && !bipe.get().getReceiver().getUserId().equals(UUID.fromString(senderId))) {
+            throw new AccessDeniedException("Acesso negado: o bipe não pertence ao usuário autenticado.");
         }
 
-        return new BipeDTO(bipe.get());
+        // Decode da mensagem do bipe antes de retornar
+        BipeDTO bipeEntity = new BipeDTO(bipe.get());
+        bipeEntity.setMensagem(safeDecodeBase64(bipeEntity.getMensagem()));
+
+        return bipeEntity;
     }
 }

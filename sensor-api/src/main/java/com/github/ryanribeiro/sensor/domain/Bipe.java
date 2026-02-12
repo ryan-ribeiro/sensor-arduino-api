@@ -2,6 +2,8 @@ package com.github.ryanribeiro.sensor.domain;
 
 import java.time.Instant;
 
+import org.springframework.context.annotation.Primary;
+
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
@@ -22,10 +24,10 @@ public class Bipe {
     @Column(name = "arduino_sender")
     private String arduinoSender; // Arduino do bipe do sender
 
-    @Column(name = "local")
+    @Column(name = "local", nullable=false)
     private String local;   // Local do bipe do receiver
 
-    @Column(name = "arduino")
+    @Column(name = "arduino", unique = true, nullable = false)
     private String arduino; // Arduino do bipe do receiver
 
     @ManyToOne

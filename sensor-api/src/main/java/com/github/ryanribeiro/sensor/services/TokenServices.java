@@ -29,7 +29,7 @@ public class TokenServices {
     public LoginResponseDTO loginService(LoginRequestDTO loginRequestDTO) {
         Optional<User> user = userRepository.findByUsername(loginRequestDTO.username());
         if (user.isEmpty() || !user.get().isPasswordValid(loginRequestDTO, bCryptPasswordEncoder)) {
-            throw new RuntimeException("user or password is invalid");
+            throw new IllegalArgumentException("user or password is invalid");
         }
 
         var expiresIn = java.time.Instant.now().plusSeconds(54000L);

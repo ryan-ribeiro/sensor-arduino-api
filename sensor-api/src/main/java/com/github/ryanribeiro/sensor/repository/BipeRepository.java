@@ -15,9 +15,17 @@ public interface BipeRepository extends JpaRepository<Bipe, Long> {
         String arduino
     );
 
+    Optional<Bipe> findTop1ByReceiverUserIdAndLocalAndArduinoOrderByCreatedAtDesc(
+        UUID receiverUserId,
+        String local, 
+        String arduino
+    );
+
+    Optional<Bipe> findByIdAndReceiverUserId(Long id, UUID receiverUserId);
+
     // Encontra o primeiro registro com ID menor que o atual, ordenando do maior para o menor
-    Optional<Bipe> findFirstByIdLessThanOrderByIdDesc(Long id);
+    Optional<Bipe> findFirstByIdLessThanAndReceiverUserIdOrderByIdDesc(Long id, UUID receiverUserId);
 
     // Encontra o primeiro registro com ID maior que o atual, ordenando do menor para o maior
-    Optional<Bipe> findFirstByIdGreaterThanOrderByIdAsc(Long id);
+    Optional<Bipe> findFirstByIdGreaterThanAndReceiverUserIdOrderByIdAsc(Long id, UUID receiverUserId);
 }
