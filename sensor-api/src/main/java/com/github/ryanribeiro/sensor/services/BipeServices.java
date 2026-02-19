@@ -186,7 +186,11 @@ public class BipeServices {
     }
 
     public BipeDTO findFirstBipeAfterId(String id, String senderId) {
-        Optional<Bipe> bipe = Optional.ofNullable(bipeRepository.findFirstByIdGreaterThanAndReceiverUserIdOrderByIdAsc(Long.parseLong(id), UUID.fromString(senderId)).orElse(null));
+        // Optional<Bipe> bipe = Optional.ofNullable(bipeRepository.findFirstByIdGreaterThanAndReceiverUserIdOrderByIdAsc(Long.parseLong(id), UUID.fromString(senderId)).orElse(null));
+        Optional<Bipe> bipe = Optional.ofNullable(bipeRepository.findBipeGreaterThanIdAndReceiverId(
+            Long.parseLong(id),
+            UUID.fromString(senderId)
+        ).orElse(null));
 
         if (bipe == null || bipe.isEmpty()) {
             throw new IllegalArgumentException("Nenhum bipe encontrado depois do ID: " + id);    
