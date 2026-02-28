@@ -1,36 +1,32 @@
 package com.github.ryanribeiro.sensor.dto;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.github.ryanribeiro.sensor.domain.Evento;
-
-import jakarta.validation.constraints.NotBlank;
 
 public class EventoDTO {
 	private Long id;
 
-	@NotBlank
 	private String local;
 
-	@NotBlank
 	private String arduino;
 
-	@NotBlank
 	private String dados;
 
-	@NotBlank
 	private String tipoSensor;
 
 	private UUID userId;
 
+	@JsonProperty("data")
 	private String dataEvento;	//TODO: Refactor para tornar esse atributo um Date
 	
 	private String counter;
 
 	private Long frequenciaEmMillissegundos;
 
-	@NotBlank
 	private Boolean temporizadorFixo;
 
 	public String getTipoSensor() {
@@ -100,7 +96,7 @@ public class EventoDTO {
 		this.dados = evento.getDados();
 		this.tipoSensor = evento.getTipoSensor();
 		if (evento.getDataEvento() != null) {
-			this.dataEvento = evento.getDataEvento().toString();
+			this.dataEvento = DateTimeFormatter.ISO_INSTANT.format(evento.getDataEvento().toInstant());
 		}
 		this.counter = evento.getCounter();
 		this.frequenciaEmMillissegundos = evento.getFrequenciaEmMillissegundos();
@@ -118,7 +114,7 @@ public class EventoDTO {
 		this.dados = first.getDados();
 		this.tipoSensor = first.getTipoSensor();
 		if (first.getDataEvento() != null) {
-			this.dataEvento = first.getDataEvento().toString();
+			this.dataEvento = DateTimeFormatter.ISO_INSTANT.format(first.getDataEvento().toInstant());
 		}
 		this.counter = first.getCounter();
 		this.frequenciaEmMillissegundos = first.getFrequenciaEmMillissegundos();

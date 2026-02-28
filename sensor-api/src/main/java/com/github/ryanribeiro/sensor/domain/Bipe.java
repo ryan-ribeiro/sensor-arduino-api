@@ -2,8 +2,6 @@ package com.github.ryanribeiro.sensor.domain;
 
 import java.time.Instant;
 
-import org.springframework.context.annotation.Primary;
-
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 

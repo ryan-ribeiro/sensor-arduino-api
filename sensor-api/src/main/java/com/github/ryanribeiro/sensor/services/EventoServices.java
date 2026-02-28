@@ -54,8 +54,13 @@ public class EventoServices {
 		} catch (Exception e) {
 			throw new IllegalArgumentException("userId inválido: " + userId);
 		}
+		if (uuid == null) {
+			throw new IllegalArgumentException("UUID inválido: " + userId);
+		}
+		User user = userRepository.findById(uuid)
+				.orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado para userId: " + userId));
 
-		List<Evento> eventos = eventoRepository.findByUser(new User(uuid));
+		List<Evento> eventos = eventoRepository.findByUser(user);
 
 		List<EventoDTO> eventosDTO = eventos.stream()
 				.map(evento -> new EventoDTO(evento))
@@ -65,8 +70,14 @@ public class EventoServices {
 	}
 	
 	public Optional<Evento> buscarPorId(Long id, JwtAuthenticationToken token) throws IllegalArgumentException {
-		User user = new User();
-		user.setUserId(UUID.fromString(token.getName()));
+		UUID userId = UUID.fromString(token.getName());
+		if (userId == null) {
+			throw new IllegalArgumentException("UserId inválido no token: " + token.getName());
+		}
+
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado para userId: " + token.getName()));
+
 		EventoDTO dto = new EventoDTO();
 		dto.setUserId(user.getUserId());
 		dto.setId(id);
@@ -91,11 +102,21 @@ public class EventoServices {
 		}
 		
 		UUID userId = Objects.requireNonNull(eventoDTO.getUserId(), "UserId não pode ser nulo ou vazio");
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado para userId: " + userId));
 		eventoDTO.setUserId(userId);
+
+		// DEBUG: Log antes de copiar para entity
+		System.out.println("[DEBUG-Service] DTO antes de salvar - dados: " + eventoDTO.getDados() + 
+			" | tipoSensor: " + eventoDTO.getTipoSensor());
 
 		Evento sensor = new Evento();
 		BeanUtils.copyProperties(eventoDTO, sensor);
-		sensor.setUser(new User(userId));
+		sensor.setUser(user);
+		
+		// DEBUG: Log da entity após copyProperties
+		System.out.println("[DEBUG-Service] Entity após copyProperties - dados: " + sensor.getDados() + 
+			" | tipoSensor: " + sensor.getTipoSensor());
 		
 		// Se a data foi fornecida no DTO, converter de String para Date
 		Date dataConvertida;
@@ -114,7 +135,15 @@ public class EventoServices {
 			}
 		}
 		
-		return new EventoDTO(eventoRepository.save(sensor));
+		Evento saved = eventoRepository.save(sensor);
+		
+		// DEBUG: Log após salvar no banco
+		System.out.println("[DEBUG-Service] Salvo no banco - ID: " + saved.getId() + 
+			" | dados: " + saved.getDados() + 
+			" | tipoSensor: " + saved.getTipoSensor() + 
+			" | data: " + saved.getDataEvento());
+		
+		return new EventoDTO(saved);
 	}
 
 	// Para DAQ com temporizador fixo
@@ -419,8 +448,9 @@ public class EventoServices {
 	}
 
 	public String getLastEventoId(UUID userId, String arduino, String tipoSensor, String local) {
-		User user = new User();
-		user.setUserId(userId);
+		User user = userRepository.findById(Objects.requireNonNull(userId))
+				.orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado para userId: " + userId));
+
 		return eventoRepository.findTop1ByUserAndTipoSensorAndArduinoAndLocalOrderByDataEventoDesc(
 				user,
 				tipoSensor,
@@ -431,8 +461,8 @@ public class EventoServices {
 	}
 
 	public EventoDTO getLastEvento(UUID userId, String arduino, String tipoSensor, String local) {
-		User user = new User();
-		user.setUserId(userId);
+		User user = userRepository.findById(Objects.requireNonNull(userId))
+				.orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado para userId: " + userId));
 		return eventoRepository.findTop1ByUserAndTipoSensorAndArduinoAndLocalOrderByDataEventoDesc(
 				user,
 				tipoSensor,
@@ -440,5 +470,14 @@ public class EventoServices {
 				local
 		).map(EventoDTO::new)
 		.orElse(null);
+	}
+
+	public EventoDTO getLastEventoOfUser(UUID userId) {
+		User user = userRepository.findById(Objects.requireNonNull(userId))
+				.orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado para userId: " + userId));
+		
+		Optional<Evento> eventoOpt = eventoRepository.findTop1ByUserOrderByDataEventoDesc(user);
+		
+		return eventoOpt.map(EventoDTO::new).orElse(null);
 	}
 }

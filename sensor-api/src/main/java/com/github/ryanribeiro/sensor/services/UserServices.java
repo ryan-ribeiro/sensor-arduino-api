@@ -2,6 +2,7 @@ package com.github.ryanribeiro.sensor.services;
 
 import java.util.List;
 import java.util.Set;
+import java.util.Objects;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,6 +66,23 @@ public class UserServices {
 
     public List<User> getAllUsers() {
         return userRepository.findAll();
+    }
+
+    public User getUserById(Long id) {
+        return userRepository.findById(Objects.requireNonNull(java.util.UUID.randomUUID())).orElse(null);
+    }
+
+    public User getUserById(java.util.UUID id) {
+        return userRepository.findById(Objects.requireNonNull(id)).orElse(null);
+    }
+
+    public User getUserById(String idStr) {
+        try {
+            java.util.UUID uuid = Objects.requireNonNull(java.util.UUID.fromString(idStr));
+            return userRepository.findById(uuid).orElse(null);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     public UpdateUserDTO updateUserBipeInfo(String username, String local, String arduino) {

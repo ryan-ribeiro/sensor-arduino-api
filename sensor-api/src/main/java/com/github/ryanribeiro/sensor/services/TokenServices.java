@@ -39,10 +39,11 @@ public class TokenServices {
             .filter(Objects::nonNull)
             .map(s -> s.replaceFirst("^ROLE_", ""))
             .collect(Collectors.joining(" "));
-
+            
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer("sensor-api")
                 .subject(user.get().getUserId().toString())
+                .claim("username", user.get().getUsername())
                 .expiresAt(expiresIn)
                 .issuedAt(java.time.Instant.now())
                 .claim("scope", scopes)
@@ -53,6 +54,16 @@ public class TokenServices {
                 )
                 .getTokenValue();
         
-        return new LoginResponseDTO(tokenJwt, expiresIn.toEpochMilli());
+        System.out.println("  Token gerado (primeiros 50 chars): " + tokenJwt.substring(0, Math.min(50, tokenJwt.length())));
+        System.out.println("  Token type: " + tokenJwt.getClass().getSimpleName());
+        System.out.println("  Token length: " + tokenJwt.length());
+        System.out.println("  Token is String? " + (tokenJwt instanceof String));
+
+        LoginResponseDTO responseObj = new LoginResponseDTO(tokenJwt, expiresIn.toEpochMilli());
+        System.out.println("✅ Response DTO created:");
+        System.out.println("  DTO type: " + responseObj.getClass().getSimpleName());
+        System.out.println("  DTO.accessToken(): " + responseObj.accessToken().substring(0, Math.min(30, responseObj.accessToken().length())));
+        
+        return responseObj;
     }
 }

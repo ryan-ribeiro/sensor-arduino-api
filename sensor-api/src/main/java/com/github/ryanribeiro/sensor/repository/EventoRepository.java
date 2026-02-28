@@ -33,6 +33,8 @@ public interface EventoRepository extends JpaRepository<Evento, Long>{
 
     // Retorna os 2 eventos DESC apenas de um dado usuário
     Optional<List<Evento>> findTop2ByUserAndTipoSensorAndArduinoAndLocalOrderByDataEventoDesc(User user, String tipoSensor, String arduino, String local);
+    
+    Optional<Evento> findTop1ByUserOrderByDataEventoDesc(User user);
 
 
 }

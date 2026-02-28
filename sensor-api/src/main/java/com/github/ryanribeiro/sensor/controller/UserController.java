@@ -25,6 +25,27 @@ public class UserController {
     @Autowired
     private UserServices userServices;
 
+    @GetMapping("/user")
+    public ResponseEntity<User> getCurrentUser(JwtAuthenticationToken authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        String userId = authentication.getName();
+        System.out.println("[DEBUG] GET /user - userId: " + userId);
+        User user = userServices.getUserById(userId);
+        
+        if (user != null) {
+            System.out.println("[DEBUG] Retornando user - username: " + user.getUsername() + 
+                " | local: " + user.getLocal() + 
+                " | arduino: " + user.getArduino());
+            return ResponseEntity.ok(user);
+        } else {
+            System.out.println("[DEBUG] Usuário não encontrado");
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @PostMapping("/users")
     @Transactional(readOnly = false, propagation = Propagation.REQUIRED)
     public ResponseEntity<Void> createUser(@RequestBody CreateUserDTO createUserDTO) {

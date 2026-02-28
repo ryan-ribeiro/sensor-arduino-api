@@ -7,7 +7,7 @@ Uma API REST robusta desenvolvida com **Spring Boot 3.5.9** e **Java 17** para i
 
 A API oferece funcionalidades para:
 - Registro e gerenciamento de usuários
-- Autenticação segura via JWT (OAuth 2.0) ou Basic Auth
+- Autenticação segura via JWT (OAuth 2.0)
 - Autorização baseada em roles (ADMIN, USER)
 - Persistência de eventos de sensores
 - Gerenciamento de mensagens (Bipes) entre usuários
@@ -111,9 +111,9 @@ java -jar target/sensor-api-1.0.0-SNAPSHOT.jar
 
 ## 🔐 Autenticação e Autorização
 
-### Tipos de Autenticação
+### Tipo de Autenticação
 
-#### 1. **JWT (JSON Web Token) - Recomendado para Web**
+#### **JWT (JSON Web Token)**
 
 Após fazer login, você recebe um token JWT que deve ser enviado no header:
 
@@ -121,29 +121,14 @@ Após fazer login, você recebe um token JWT que deve ser enviado no header:
 Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-#### 2. **Basic Auth - Recomendado para Arduino**
-
-Para projetos Arduino com conectividade limitada, use Basic Auth:
-
-```
-Authorization: Basic base64(username:password)
-```
-
-Exemplo em Arduino com WiFi:
-
-```cpp
-String auth = base64_encode(String(username + ":" + password).c_str());
-http.addHeader("Authorization", "Basic " + auth);
-```
-
 ### Roles e Permissões
 
-A API possui dois roles:
+A API possui dois roles (convertidos em `SCOPE_...` no token):
 
 | Role | Descrição | Permissões |
 |------|-----------|-----------|
 | **ADMIN** | Administrador do sistema | Acesso a `/admin/**` |
-| **USER** | Usuário regular | Criar eventos, enviar bipes, acessar seus próprios dados |
+| **USER** | Usuário regular | Acesso aos endpoints protegidos com `SCOPE_USER` |
 
 ---
 
@@ -160,7 +145,8 @@ A API possui dois roles:
 {
   "username": "seu_usuario",
   "password": "sua_senha",
-  "email": "seu_email@example.com"
+  "local": "Sala 01",
+  "arduino": "arduino_001"
 }
 ```
 
@@ -177,7 +163,8 @@ curl -X POST http://localhost:8080/users \
   -d '{
     "username": "arduino_user",
     "password": "senha123",
-    "email": "sensor@example.com"
+    "local": "Sala 01",
+    "arduino": "arduino_001"
   }'
 ```
 
@@ -202,9 +189,8 @@ curl -X POST http://localhost:8080/users \
 **Resposta:**
 ```json
 {
-  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "Bearer",
-  "expires_in": 3600
+  "accessToken": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expiresIn": 1700000000000
 }
 ```
 
@@ -221,7 +207,7 @@ curl -X POST http://localhost:8080/login \
 
 ### Usar o Token
 
-Copie o `access_token` e inclua em todas as requisições subsequentes:
+Copie o `accessToken` e inclua em todas as requisições subsequentes:
 
 ```bash
 curl -X GET http://localhost:8080/eventos \
@@ -243,8 +229,9 @@ curl -X GET http://localhost:8080/eventos \
 
 | Método | Rota | Descrição | Autenticação | Permissão |
 |--------|------|-----------|--------------|-----------|
+| GET | `/user` | Obter usuário logado | ✅ JWT | Autenticado |
 | GET | `/admin/users` | Listar todos os usuários | ✅ JWT | ADMIN |
-| GET | `/users/update-bipe-info` | Atualizar informações de bipe do usuário | ✅ JWT | USER |
+| GET | `/users/update-bipe-info` | Atualizar informações de bipe do usuário | ✅ JWT | Autenticado |
 
 **Parâmetros para `/users/update-bipe-info`:**
 - `username` (string) - Nome do usuário
@@ -255,18 +242,23 @@ curl -X GET http://localhost:8080/eventos \
 
 | Método | Rota | Descrição | Autenticação | Permissão |
 |--------|------|-----------|--------------|-----------|
-| GET | `/eventos/admin/all` | Listar todos os eventos (admin) | ✅ JWT | ADMIN |
+| GET | `/eventos/admin/all` | Listar todos os eventos | ✅ JWT | Autenticado |
 | GET | `/eventos` | Listar eventos do usuário logado | ✅ JWT | USER |
-| GET | `/eventos/{id}` | Obter evento específico por ID | ✅ JWT | USER |
+| GET | `/eventos/{id}` | Obter evento específico por ID | ✅ JWT | Autenticado |
 | POST | `/eventos/salvar` | Criar novo evento de sensor | ✅ JWT | USER |
+| POST | `/eventos/salvarDadoCasoWiFiCaiu` | Criar evento com suporte a offline | ✅ JWT | USER |
+| GET | `/eventos/data-ultimo-evento` | Obter data do último evento | ✅ JWT | USER |
+| GET | `/eventos/id-ultimo-evento` | Obter ID do último evento | ✅ JWT | USER |
+| GET | `/eventos/ultimo-evento` | Obter último evento por filtro | ✅ JWT | USER |
+| GET | `/eventos/ultimo-evento-user` | Obter último evento do usuário | ✅ JWT | USER |
 
 #### Criar Evento (POST /eventos/salvar)
 
 **Body:**
 ```json
 {
-  "temperaturaC": 25.5,
-  "umidadeRelativa": 65.3,
+  "dados": "{\"temperaturaC\":25.5,\"umidadeRelativa\":65.3}",
+  "tipoSensor": "DHT11",
   "local": "Sala 01",
   "arduino": "arduino_001",
   "data": "2024-02-19T10:30:00Z"
@@ -278,8 +270,8 @@ curl -X GET http://localhost:8080/eventos \
 {
   "id": 1,
   "userId": "uuid-do-usuario",
-  "temperaturaC": 25.5,
-  "umidadeRelativa": 65.3,
+  "dados": "{\"temperaturaC\":25.5,\"umidadeRelativa\":65.3}",
+  "tipoSensor": "DHT11",
   "local": "Sala 01",
   "arduino": "arduino_001",
   "data": "2024-02-19T10:30:00Z"
@@ -287,6 +279,17 @@ curl -X GET http://localhost:8080/eventos \
 ```
 
 **Status:** 201 Created
+
+**Campos opcionais em `/eventos/salvarDadoCasoWiFiCaiu`:**
+- `frequenciaEmMillissegundos` (number)
+- `temporizadorFixo` (boolean)
+- `counter` (string)
+- `data` (string, RFC 3339)
+
+**Parâmetros para `/eventos/data-ultimo-evento`, `/eventos/id-ultimo-evento` e `/eventos/ultimo-evento`:**
+- `arduino` (string)
+- `tipoSensor` (string)
+- `local` (string)
 
 ### **Bipes (Mensagens)**
 
@@ -296,6 +299,9 @@ curl -X GET http://localhost:8080/eventos \
 | GET | `/bipes/ultimo-bipe` | Obter última mensagem recebida | ✅ JWT | USER |
 | GET | `/bipes/id-ultimo-bipe` | Obter ID do último bipe recebido | ✅ JWT | USER |
 | GET | `/bipes/hora-ultimo-bipe` | Obter hora do último bipe recebido | ✅ JWT | USER |
+| GET | `/bipes` | Obter bipe por ID (query param) | ✅ JWT | USER |
+| GET | `/bipes/before` | Obter bipe anterior ao ID informado | ✅ JWT | USER |
+| GET | `/bipes/after` | Obter bipe posterior ao ID informado | ✅ JWT | USER |
 
 #### Enviar Bipe (POST /bipes/enviarBipe)
 
@@ -312,56 +318,31 @@ curl -X GET http://localhost:8080/eventos \
 **Resposta:**
 ```json
 {
-  "id": "uuid",
+  "id": 1,
   "senderId": "uuid-do-remetente",
   "receiverId": "uuid-do-receptor",
   "mensagem": "Mensagem de controle do Arduino",
   "local": "Sala 01",
   "arduino": "arduino_001",
-  "dataCriacao": "2024-02-19T10:30:00Z"
+  "createdAt": "2024-02-19T10:30:00Z",
+  "updatedAt": "2024-02-19T10:30:00Z"
 }
 ```
 
 **Status:** 201 Created
 
-#### Obter Último Bipe (GET /bipes/ultimo-bipe)
+**Parâmetros para `/bipes/ultimo-bipe`, `/bipes/id-ultimo-bipe` e `/bipes/hora-ultimo-bipe`:**
+- `arduino` (string)
+- `local` (string)
 
-**Parâmetros de Query:**
-- `arduino` (string) - ID do Arduino
-- `local` (string) - Localização
+**Parâmetros para `/bipes`, `/bipes/before` e `/bipes/after`:**
+- `id` (string)
 
-**Resposta:**
-```
-"Mensagem de controle do Arduino"
-```
+### **Debug**
 
-**Status:** 200 OK
-
-#### Obter ID do Último Bipe (GET /bipes/id-ultimo-bipe)
-
-**Parâmetros de Query:**
-- `arduino` (string) - ID do Arduino
-- `local` (string) - Localização
-
-**Resposta:**
-```
-"id-do-bipe-uuid"
-```
-
-**Status:** 200 OK
-
-#### Obter Hora do Último Bipe (GET /bipes/hora-ultimo-bipe)
-
-**Parâmetros de Query:**
-- `arduino` (string) - ID do Arduino
-- `local` (string) - Localização
-
-**Resposta:**
-```
-"2024-02-19T10:30:00Z"
-```
-
-**Status:** 200 OK
+| Método | Rota | Descrição | Autenticação |
+|--------|------|-----------|--------------|
+| GET | `/debug/echo` | Healthcheck simples da API | ✅ JWT |
 
 ---
 
@@ -375,7 +356,8 @@ curl -X POST http://localhost:8080/users \
   -d '{
     "username": "meu_arduino",
     "password": "senha_segura",
-    "email": "arduino@sensores.com"
+    "local": "Sala 01",
+    "arduino": "arduino_001"
   }'
 ```
 
@@ -390,7 +372,7 @@ curl -X POST http://localhost:8080/login \
   }' | jq .
 ```
 
-Copie o `access_token` retornado.
+Copie o `accessToken` retornado.
 
 ### 3. Enviar Evento (Dados de Sensor)
 
@@ -399,8 +381,8 @@ curl -X POST http://localhost:8080/eventos/salvar \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer seu_access_token" \
   -d '{
-    "temperaturaC": 28.5,
-    "umidadeRelativa": 45.2,
+    "dados": "{\"temperaturaC\":28.5,\"umidadeRelativa\":45.2}",
+    "tipoSensor": "DHT11",
     "local": "Sala Principal",
     "arduino": "DHT11_001",
     "data": "2024-02-19T14:30:00Z"
@@ -507,7 +489,7 @@ void login() {
   
   if (httpCode == 200) {
     String response = http.getString();
-    // Parse JSON para extrair access_token
+    // Parse JSON para extrair accessToken
     // Você pode usar uma biblioteca JSON como ArduinoJson
     Serial.println("Login bem-sucedido!");
     last_login = millis();
@@ -529,7 +511,7 @@ void sendData(float temp, float humidity) {
   
   char payload[256];
   snprintf(payload, sizeof(payload),
-    "{\"temperaturaC\":%.2f,\"umidadeRelativa\":%.2f,\"local\":\"Sala 01\",\"arduino\":\"DHT11_001\"}",
+    "{\"dados\":\"{\\\"temperaturaC\\\":%.2f,\\\"umidadeRelativa\\\":%.2f}\",\"tipoSensor\":\"DHT11\",\"local\":\"Sala 01\",\"arduino\":\"DHT11_001\"}",
     temp, humidity);
   
   int httpCode = http.POST(payload);
@@ -608,54 +590,75 @@ Edite `docker-compose.yaml` para configurar variáveis de ambiente.
 
 ### Tabelas Principais
 
-- **users** - Usuários registrados
-- **roles** - Papéis (ADMIN, USER)
-- **eventos** - Eventos/medições de sensores
-- **bipes** - Mensagens entre usuários
+- **tb_users** - Usuários registrados
+- **tb_roles** - Papéis (ADMIN, USER)
+- **tb_user_roles** - Relação usuários/roles
+- **tb_evento** - Eventos/medições de sensores
+- **tb_bipe** - Mensagens entre usuários
 
 ### User
 
 ```sql
-CREATE TABLE users (
+CREATE TABLE tb_users (
   user_id UUID PRIMARY KEY,
   username VARCHAR(100) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
-  email VARCHAR(100),
   local VARCHAR(100),
   arduino VARCHAR(100),
-  role_id BIGINT,
-  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+```
+
+### Roles e Relacionamento
+
+```sql
+CREATE TABLE tb_roles (
+  role_id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE tb_user_roles (
+  user_id UUID NOT NULL,
+  role_id BIGINT NOT NULL,
+  PRIMARY KEY (user_id, role_id)
 );
 ```
 
 ### Evento
 
 ```sql
-CREATE TABLE eventos (
+CREATE TABLE tb_evento (
   id BIGSERIAL PRIMARY KEY,
   user_id UUID NOT NULL,
-  temperatura_c DECIMAL(5,2),
-  umidade_relativa DECIMAL(5,2),
+  tp_sensor VARCHAR(100),
   local VARCHAR(100),
   arduino VARCHAR(100),
-  data TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(user_id)
+  dados TEXT,
+  dt_evento TIMESTAMP,
+  counter VARCHAR(100),
+  frequencia_em_millissegundos BIGINT,
+  temporizador_fixo BOOLEAN,
+  FOREIGN KEY (user_id) REFERENCES tb_users(user_id)
 );
 ```
 
 ### Bipe
 
 ```sql
-CREATE TABLE bipes (
-  id UUID PRIMARY KEY,
+CREATE TABLE tb_bipe (
+  id BIGSERIAL PRIMARY KEY,
+  mensagem TEXT,
+  local_sender VARCHAR(100),
+  arduino_sender VARCHAR(100),
+  local VARCHAR(100) NOT NULL,
+  arduino VARCHAR(100) NOT NULL UNIQUE,
   sender_id UUID NOT NULL,
   receiver_id UUID NOT NULL,
-  mensagem TEXT,
-  local VARCHAR(100),
-  arduino VARCHAR(100),
-  data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (sender_id) REFERENCES users(user_id),
-  FOREIGN KEY (receiver_id) REFERENCES users(user_id)
+  created_at TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP NOT NULL,
+  FOREIGN KEY (sender_id) REFERENCES tb_users(user_id),
+  FOREIGN KEY (receiver_id) REFERENCES tb_users(user_id)
 );
 ```
 
@@ -693,12 +696,7 @@ Para Arduino **sem relógio RTC** em modo datalogger:
 
 ### CORS Configurado
 
-A API aceita requisições de:
-- `http://localhost:5173`
-- `http://localhost:8081`
-- `http://127.0.0.1:5173`
-
-Modifique em `SecurityConfig.java` para adicionar outras origens.
+Por padrão, o CORS está liberado para qualquer origem e métodos comuns. Ajuste em `SecurityConfig.java` se precisar restringir.
 
 ---
 

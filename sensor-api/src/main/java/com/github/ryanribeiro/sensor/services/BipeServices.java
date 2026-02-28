@@ -3,6 +3,7 @@ package com.github.ryanribeiro.sensor.services;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Objects;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,8 +79,7 @@ public class BipeServices {
             throw new IllegalArgumentException("SenderId não pode ser nulo");
         }
 
-        @SuppressWarnings("null")
-        User sender = userRepository.findById(bipeDto.getSenderId())
+        User sender = userRepository.findById(Objects.requireNonNull(bipeDto.getSenderId()))
                     .orElseThrow(() -> new IllegalArgumentException("Sender não encontrado."));
 
 

@@ -8,20 +8,20 @@
 DHT dht(DHTPIN, DHTTYPE);
 
 // Configurações da rede Wi-Fi conectada
-const char* ssid = "dev";
-const char* password = "qwer@123";
+const char* ssid = "Redmi Note 11";
+const char* password = "12345678";
 
 
 // Configurações de login do usuário cadastrado na API
-String username = "ryan";
-String loginPassword = "123";
+String username = "ryan255";
+String loginPassword = "123456";
 
 // Token de acesso para a API
 String accessToken = "";
-const char* loginEndpoint = "http://192.168.1.8:8080/login";
+const char* loginEndpoint = "http://10.25.245.109:8080/login";
 
 // Endereço para o endpoint /salvar evento
-const char* serverName = "http://192.168.1.8:8080/eventos/salvar";
+const char* serverName = "http://10.25.245.109:8080/eventos/salvar";
 
 unsigned long timerDelay = 5000; // Timer set to 5 seconds (5000)
 unsigned long lastTime = 0;
@@ -66,6 +66,8 @@ void setup() {
 }
 
 void loop() {
+  float umidade;
+  float temperatura;
   if (WiFi.status() == WL_CONNECTED) {
     umidade = dht.readHumidity();
     temperatura = dht.readTemperature();

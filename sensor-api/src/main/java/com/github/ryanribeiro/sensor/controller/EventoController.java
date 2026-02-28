@@ -50,6 +50,15 @@ public class EventoController{
 		if (eventos.isEmpty()) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Não existem eventos cadastrados no momento.");
 		}
+		// DEBUG: Log dos eventos retornados
+		System.out.println("[DEBUG] Retornando " + eventos.size() + " eventos");
+		if (!eventos.isEmpty()) {
+			EventoDTO primeiro = eventos.get(0);
+			System.out.println("[DEBUG] Primeiro evento - ID: " + primeiro.getId() + 
+				" | dados: " + primeiro.getDados() + 
+				" | tipoSensor: " + primeiro.getTipoSensor() + 
+				" | data: " + primeiro.getDataEvento());
+		}
 		return ResponseEntity.ok(eventos);
 	}
 
@@ -59,6 +68,7 @@ public class EventoController{
 												JwtAuthenticationToken token
 	) {
 		Optional<Evento> evento = eventoServices.buscarPorId(id, token);
+		System.out.println("[DEBUG] Retornando evento com id: " + id + " para usuário: " + token.getName());
 		if (evento.isPresent()) {
 			return ResponseEntity.ok(new EventoDTO(evento.get()));
 		} else {
@@ -75,11 +85,23 @@ public class EventoController{
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Token inválido: userId não encontrado.");
 		}
 		
+		// DEBUG: Log dados recebidos
+		System.out.println("[DEBUG] Recebendo evento - dados: " + eventoDTO.getDados() + 
+			" | tipoSensor: " + eventoDTO.getTipoSensor() + 
+			" | local: " + eventoDTO.getLocal() + 
+			" | arduino: " + eventoDTO.getArduino());
+		
 		User user = new User();
 		user.setUserId(UUID.fromString(token.getName()));
 		eventoDTO.setUserId(user.getUserId());
 
 		eventoSaved = eventoServices.salvar(eventoDTO);
+		
+		// DEBUG: Log dados salvos
+		System.out.println("[DEBUG] Evento salvo - ID: " + eventoSaved.getId() + 
+			" | dados: " + eventoSaved.getDados() + 
+			" | tipoSensor: " + eventoSaved.getTipoSensor() + 
+			" | data: " + eventoSaved.getDataEvento());
 
 		return ResponseEntity
 					.status(HttpStatus.CREATED)
@@ -210,6 +232,32 @@ public class EventoController{
 		user.setUserId(UUID.fromString(token.getName()));
 
 		EventoDTO evento = eventoServices.getLastEvento(user.getUserId(), arduino, tipoSensor, local);
+		if (evento == null) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+		}
+		return ResponseEntity.ok(evento);
+	}
+
+	@GetMapping("/ultimo-evento-user")
+	@PreAuthorize("hasAuthority('SCOPE_USER')")
+	public ResponseEntity<EventoDTO> getLastEvento(
+		JwtAuthenticationToken token	
+	) {
+		User user = new User();
+		user.setUserId(UUID.fromString(token.getName()));
+
+		EventoDTO evento = eventoServices.getLastEventoOfUser(user.getUserId());
+		
+		// DEBUG: Log do evento retornado
+		if (evento != null) {
+			System.out.println("[DEBUG] Último evento - ID: " + evento.getId() + 
+				" | dados: " + evento.getDados() + 
+				" | tipoSensor: " + evento.getTipoSensor() + 
+				" | data: " + evento.getDataEvento());
+		} else {
+			System.out.println("[DEBUG] Nenhum evento encontrado");
+		}
+		
 		if (evento == null) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
 		}
