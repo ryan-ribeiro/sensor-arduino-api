@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
 /*
-    Credits for https://github.com/carter-glynn/Morse-Code-Reader/tree/main
+    Credits to https://github.com/carter-glynn/Morse-Code-Reader/tree/main
     Adaptated from STM32 to Esp32
 */
 
@@ -31,14 +31,18 @@ typedef struct {
     char character;
 } Morse;
 
-// Tabela de conversão Código Morse -> Letras
+// Tabela de conversão Código Morse -> Letras e números
 static const Morse morseTable[] = {
+    // Letras
     { ".-", 'A' }, { "-...", 'B' }, { "-.-.", 'C' }, { "-..", 'D' }, { ".", 'E' },
     { "..-.", 'F' }, { "--.", 'G' }, { "....", 'H' }, { "..", 'I' }, { ".---", 'J' },
     { "-.-", 'K' }, { ".-..", 'L' }, { "--", 'M' }, { "-.", 'N' }, { "---", 'O' },
     { ".--.", 'P' }, { "--.-", 'Q' }, { ".-.", 'R' }, { "...", 'S' }, { "-", 'T' },
     { "..-", 'U' }, { "...-", 'V' }, { ".--", 'W' }, { "-..-", 'X' }, { "-.--", 'Y' },
-    { "--..", 'Z' }
+    { "--..", 'Z' },
+    // Números
+    { ".----", '1' }, { "..---", '2' }, { "...--", '3' }, { "....-", '4' }, { ".....", '5' },
+    { "-....", '6' }, { "--...", '7' }, { "---..", '8' }, { "----.", '9' }, { "-----", '0' }
 };
 
 // Handles para Filas e Semáforos do FreeRTOS
