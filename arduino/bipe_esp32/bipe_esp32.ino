@@ -15,12 +15,13 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 // ========== Pinos ==========
 #define MORSE_CODE_BUTTON 19
 #define BOTAO_LER_BIPE 22
-#define ANTERIOR 23
-#define PROXIMO   32
+#define ANTERIOR 2
+#define PROXIMO   23
 #define ENVIAR     18
 #define CANCELAR   21
 #define LED_PIN    2
 #define LED_OUT_PIN 4
+#define BUZZER_PIN 15
 
 // ========== Tempos ==========
 #define ARRLENGTH    5
@@ -29,22 +30,23 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 #define LETTER_SPACE 1000
 
 // ========== Variáveis de Rede ==========
-const char* ssid          = "dev_5G";
-const char* password      = "qwer@123";
+const char* ssid          = "";
+const char* password      = "";
 String username           = "ryan255";
 String loginPassword      = "123456";
 String accessToken        = "";
 
 const String tipoSensor = "morse";
-const String local      = "sala";
+const String local      = "home256";
 const String arduino    = "esp32-01";
 
 // CORRIGIDO: String ao invés de const char* para permitir concatenação
-const char* salvarBipeEndpoint      = "http://192.168.1.6:8080/bipes/salvar";
-const String ultimoBipeEndpoint      = "http://192.168.1.6:8080/bipes/ultimo-bipe?local="    + local + "&arduino=" + arduino;
-const String idUltimoBipeEndpoint    = "http://192.168.1.6:8080/bipes/id-ultimo-bipe?local=" + local + "&arduino=" + arduino;
+const char* salvarBipeEndpoint      = "http://192.168.1.6:8080/bipes/enviarBipe";
+const String ultimoBipeEndpoint      = "http://192.168.1.6:8080/bipes/ultimo-bipe?local=home&arduino=" + arduino;
+const String idUltimoBipeEndpoint    = "http://192.168.1.6:8080/bipes/id-ultimo-bipe?local=home&arduino=" + arduino;
 const String bipesBeforeEndpoint     = "http://192.168.1.6:8080/bipes/before";
 const String bipesAfterEndpoint      = "http://192.168.1.6:8080/bipes/after";
+const String checkNewBipesEndpoint   = "http://192.168.1.6:8080/bipes/check-new-bipes";
 const String loginEndpoint           = "http://192.168.1.6:8080/login";
 
 // ========== Mensagem acumulada ==========
@@ -146,7 +148,7 @@ String httpGETRequest(String serverName) {
     payload = http.getString();
   }
   else {
-    Serial.print("Error code: ");
+    Serial.print("Error code for GET " + serverName + ": ");
     Serial.println(httpResponseCode);
   }
   // Free resources
@@ -180,7 +182,7 @@ String login(const String loginEndpoint, String username, String password) {
         Serial.println(httpResponseCode);
         payload = http.getString();
     } else {
-        Serial.print("Error code: ");
+        Serial.print("Error code for login: ");
         Serial.println(httpResponseCode);
         http.end();
         return "";
@@ -243,6 +245,7 @@ void StartTask1(void *pvParameters) {
             uint32_t duration = releaseTime - pressTime;
 
             if (duration > 50) {
+                Serial.println("Task 1 está funcionando");
                 signal = (duration < SIG_DASH) ? DOT : DASH;
                 xQueueSend(queue1, &signal, portMAX_DELAY);
             }
@@ -268,6 +271,7 @@ void StartTask2(void *pvParameters) {
     Code signal;
     while (1) {
         if (xQueueReceive(queue1, &signal, portMAX_DELAY) == pdPASS) {
+            Serial.println("Task 2 está funcionando");
             if (signal == DOT || signal == DASH) {
                 digitalWrite(LED_PIN, HIGH);
                 vTaskDelay(pdMS_TO_TICKS(signal == DOT ? SIG_DOT : SIG_DASH));
@@ -307,6 +311,7 @@ void StartTask3(void *pvParameters) {
                 buffer[index] = '\0';
 
                 if (xSemaphoreTake(mutexMensagem, portMAX_DELAY) == pdTRUE) {
+                    Serial.println("Task 3 está funcionando");
                     for (int i = 0; i < 36; i++) {
                         if (strcmp(buffer, morseTable[i].morse) == 0) {
                             char decoded = morseTable[i].character;
@@ -364,6 +369,7 @@ void StartTask4(void *pvParameters) {
     Code signal;
     while (1) {
         if (xQueueReceive(queue2_2, &signal, portMAX_DELAY) == pdPASS) {
+            Serial.println("Task 4 está funcionando");
             if (signal == DOT || signal == DASH) {
                 digitalWrite(LED_OUT_PIN, HIGH);
                 vTaskDelay(pdMS_TO_TICKS(signal == DOT ? SIG_DOT : SIG_DASH));
@@ -382,6 +388,7 @@ void StartTaskLCDWriting(void *pvParameters) {
     LCDMessage msg;
     while (1) {
         if (xQueueReceive(queueLCD, &msg, portMAX_DELAY) == pdPASS) {
+            Serial.println("Task LCD está funcionando");
             // Aguarda o mutex antes de acessar o LCD
             if (xSemaphoreTake(mutexLCD, portMAX_DELAY) == pdTRUE) {
                 int row = msg.position / 16;
@@ -399,6 +406,7 @@ void StartTaskSendBipe(void *pvParameters) {
     while (1) {
         if (xQueueReceive(queueBipe, &bipe, portMAX_DELAY) == pdPASS) {
             if (WiFi.status() == WL_CONNECTED) {
+                Serial.println("Task Bipe está funcionando");
                 int code = RequisicaoHttpPOST(bipe.mensagem, salvarBipeEndpoint);
                 if (code == 401) {
                     rotinaAccessToken();
@@ -417,12 +425,6 @@ void StartTaskSendBipe(void *pvParameters) {
 void StartTaskLerBipe(void *pvParameters) {
     // Lista local simulando bipes recebidos — substitua por busca HTTP real
     // quando implementar o endpoint de leitura
-    const char* bipesRecebidos[] = {
-        "OLA MUNDO",
-        "TESTE MORSE",
-        "ESP32 OK"
-    };
-    const int totalBipes = 3;
     int indiceBipe = 0;
 
     // Pegar ultimo bipe e mostrar /bipes/ultimo-bipe?local=sala&arduino=esp32-01
@@ -432,7 +434,7 @@ void StartTaskLerBipe(void *pvParameters) {
     bool lastLer      = HIGH;
     bool lastAnterior = HIGH;
     bool lastProximo  = HIGH;
-    bool modoLeitura  = false; // Controla se estamos no modo de leitura
+    bool modoLeitura  = true; // Controla se estamos no modo de leitura
     int idAtualBipe = 0;
 
     while (1) {
@@ -448,9 +450,16 @@ void StartTaskLerBipe(void *pvParameters) {
             if (modoLeitura) {
                 ultimoBipeRecebido = httpGETRequest(ultimoBipeEndpoint);
                 idAtualBipe = httpGETRequest(idUltimoBipeEndpoint).toInt(); // Pega o ID do último bipe recebido
+                Serial.println(idAtualBipe);
+                Serial.println("ultimo bipe recebido:" + ultimoBipeRecebido);
+
+                // Reseta o estado dos botões ao entrar no modo leitura
+                lastAnterior = digitalRead((uint8_t)ANTERIOR);
+                lastProximo  = digitalRead((uint8_t)PROXIMO);
             }
 
             if (xSemaphoreTake(mutexLCD, portMAX_DELAY) == pdTRUE) {
+                Serial.println("Task BIPE RECEBIDO está funcionando");
                 lcd.clear();
                 if (modoLeitura) {
                     lcd.setCursor(0, 0);
@@ -473,9 +482,11 @@ void StartTaskLerBipe(void *pvParameters) {
             if (proximo == LOW && lastProximo == HIGH) {
                 // Pega o próximo bipe após o ID atual
                 ultimoBipeRecebido = httpGETRequest(bipesAfterEndpoint+"?id=" + String(idAtualBipe)); 
-                idAtualBipe++;
+                if (ultimoBipeRecebido != "{}")
+                    idAtualBipe++;
 
                 if (xSemaphoreTake(mutexLCD, portMAX_DELAY) == pdTRUE) {
+                    Serial.println("Task BIPE POSTERIOR está funcionando");
                     lcd.clear();
                     lcd.setCursor(0, 0);
                     lcd.print("Bipe recebido:");
@@ -483,8 +494,6 @@ void StartTaskLerBipe(void *pvParameters) {
                     lcd.print(ultimoBipeRecebido);
                     xSemaphoreGive(mutexLCD);
                 }
-                Serial.print("Proximo bipe: ");
-                Serial.println(bipesRecebidos[indiceBipe]);
             }
             lastProximo = proximo;
 
@@ -492,23 +501,42 @@ void StartTaskLerBipe(void *pvParameters) {
             if (anterior == LOW && lastAnterior == HIGH) {
                 // Pega o próximo bipe após o ID atual
                 ultimoBipeRecebido = httpGETRequest(bipesBeforeEndpoint+"?id=" + String(idAtualBipe)); 
-                idAtualBipe--;
+                if (ultimoBipeRecebido != "{}")
+                    idAtualBipe--;
 
                 if (xSemaphoreTake(mutexLCD, portMAX_DELAY) == pdTRUE) {
+                    Serial.println("Task BIPE ANTERIOR está funcionando");
                     lcd.clear();
                     lcd.setCursor(0, 0);
-                    lcd.print("Bipe recebido:");
+                    lcd.print("Bipe anterior:");
                     lcd.setCursor(0, 1);
                     lcd.print(ultimoBipeRecebido);
                     xSemaphoreGive(mutexLCD);
                 }
-                Serial.print("Bipe anterior: ");
-                Serial.println(ultimoBipeRecebido);
             }
             lastAnterior = anterior;
         }
 
+        if (!modoLeitura) {
+            lastAnterior = anterior;
+            lastProximo  = proximo;
+        }
+
         vTaskDelay(pdMS_TO_TICKS(10)); // Debounce e libera CPU
+    }
+}
+
+void StartTaskCheckNewBipes(void *pvParameters) {
+    while (1) {
+        String recebeuNovoBipe = httpGETRequest(checkNewBipesEndpoint);
+        if (recebeuNovoBipe == "true") {
+            Serial.println("Bipe!!!");
+            digitalWrite(BUZZER_PIN, HIGH);
+            vTaskDelay(pdMS_TO_TICKS(500));
+            digitalWrite(BUZZER_PIN, LOW);
+        }
+        
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
 
@@ -525,6 +553,7 @@ void setup() {
     pinMode(BOTAO_LER_BIPE, INPUT_PULLUP);
     pinMode(ANTERIOR, INPUT_PULLUP);
     pinMode(PROXIMO, INPUT_PULLUP);
+    pinMode(BUZZER_PIN, OUTPUT);
 
     WiFi.begin(ssid, password);
     Serial.print("Conectando ao WiFi");
@@ -553,6 +582,7 @@ void setup() {
     // Core 0: tarefas de rede (WiFi é nativo do core 0)
     xTaskCreatePinnedToCore(StartTaskSendBipe, "Task HTTP", 6144, NULL, 1, NULL, 0);
     xTaskCreatePinnedToCore(StartTaskLerBipe,    "Task Ler", 4096, NULL, 1, NULL, 0);
+    xTaskCreatePinnedToCore(StartTaskCheckNewBipes, "Task check new Bipes", 4096, NULL, 1, NULL, 1);
 
     // Core 1: tarefas de interface (botões, LCD, LEDs)
     xTaskCreatePinnedToCore(StartTask1,          "Task1",    2048, NULL, 1, NULL, 1);
