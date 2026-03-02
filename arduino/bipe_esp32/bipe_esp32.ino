@@ -99,7 +99,6 @@ QueueHandle_t queue2_1;
 QueueHandle_t queue2_2;
 QueueHandle_t queueLCD;
 QueueHandle_t queueBipe;
-SemaphoreHandle_t BinSemHandle;
 SemaphoreHandle_t mutexLCD;
 SemaphoreHandle_t mutexMensagem; 
 
@@ -325,10 +324,9 @@ void StartTask3(void *pvParameters) {
                             break;
                         }
                     }
+                    Serial.println(mensagem);
                     xSemaphoreGive(mutexMensagem);
                 }
-
-                if (index > 0) Serial.println();
 
                 index = 0;
                 memset(buffer, 0, sizeof(buffer));
@@ -338,7 +336,11 @@ void StartTask3(void *pvParameters) {
         // Cancelar mensagem
         if (xSemaphoreTake(mutexMensagem, portMAX_DELAY) == pdTRUE) {
             if (cancelar == LOW && lastCancelar == HIGH) {
-                lcd.clear();
+                // Protege o LCD com mutex antes de limpar
+                if (xSemaphoreTake(mutexLCD, portMAX_DELAY) == pdTRUE) {
+                    lcd.clear();
+                    xSemaphoreGive(mutexLCD);
+                }
                 mensagem = "";
                 qtdChar  = 0;
                 Serial.println("Mensagem cancelada.");
@@ -353,7 +355,11 @@ void StartTask3(void *pvParameters) {
                 xQueueSend(queueBipe, &bipe, 0);
                 mensagem = "";  // Limpa após enviar
                 qtdChar  = 0;
-                lcd.clear();
+                // Protege o LCD com mutex antes de limpar
+                if (xSemaphoreTake(mutexLCD, portMAX_DELAY) == pdTRUE) {
+                    lcd.clear();
+                    xSemaphoreGive(mutexLCD);
+                }
                 Serial.println("Mensagem enviada à fila.");
             }
             xSemaphoreGive(mutexMensagem);
@@ -384,13 +390,14 @@ void StartTask4(void *pvParameters) {
 }
 
 // Task que escreve no LCD os caracteres na Escrita
-void StartTaskLCDWriting(void *pvParameters) {
+void StartTaskLCD(void *pvParameters) {
     LCDMessage msg;
     while (1) {
         if (xQueueReceive(queueLCD, &msg, portMAX_DELAY) == pdPASS) {
-            Serial.println("Task LCD está funcionando");
             // Aguarda o mutex antes de acessar o LCD
+            Serial.println("Queue LCD chamada");
             if (xSemaphoreTake(mutexLCD, portMAX_DELAY) == pdTRUE) {
+                Serial.println("Caracteres escritos");
                 int row = msg.position / 16;
                 lcd.setCursor(msg.position % 16, row);
                 lcd.print(msg.character);
@@ -536,7 +543,7 @@ void StartTaskCheckNewBipes(void *pvParameters) {
             digitalWrite(BUZZER_PIN, LOW);
         }
         
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        vTaskDelay(pdMS_TO_TICKS(5500));
     }
 }
 
@@ -565,9 +572,6 @@ void setup() {
 
     rotinaAccessToken();
 
-    BinSemHandle = xSemaphoreCreateBinary();
-    xSemaphoreGive(BinSemHandle);
-
     mutexLCD = xSemaphoreCreateMutex();
     mutexMensagem = xSemaphoreCreateMutex();
 
@@ -589,7 +593,7 @@ void setup() {
     xTaskCreatePinnedToCore(StartTask2,          "Task2",    2048, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(StartTask3,          "Task3",    2048, NULL, 1, NULL, 1);
     xTaskCreatePinnedToCore(StartTask4,          "Task4",    2048, NULL, 1, NULL, 1);
-    xTaskCreatePinnedToCore(StartTaskLCDWriting, "Task LCD", 6144, NULL, 1, NULL, 1);
+    xTaskCreatePinnedToCore(StartTaskLCD, "Task LCD", 6144, NULL, 1, NULL, 1);
 
     xTaskCreatePinnedToCore([](void*){
         while(1) {
